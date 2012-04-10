@@ -1,0 +1,89 @@
+version 0.8.1
+    + Added preliminary .ATX image support (does not seem to be fully functional) (Krzysztof Pyrkosz)
+    + Updated Polish translation (Krzysztof Pyrkosz)
+    + Updated Turkish translation (Ray Ataergin)
+    + Added Russian translation (Nikita Zimin)
+    + Updated high speed exe loader (Matthias Reichl)
+    + Added auto-commit (auto-save) function for disk images.
+      Changes made to disk images can now be saved automatically without user intervention (Ray Ataergin)
+
+version 0.8
+    + This version introduces the AspeQt client module AspeCl. AspeCl runs on the Atari computer and serves as a client
+      to AspeQt. In this release only Date/Time functionality is implemented, in future releases more
+      functionality will be added. (Ray Ataergin)
+
+            AspeCl is fully compatible with SpartaDos and SDX, and support the following command line switches:
+
+                    TS  => Set Date/Time on Atari
+                    TO  => Set Date/Time on Atari and turn TD Line ON
+                    TF  => Set Date/Time on Atari and turn TD Line OFF
+
+                         usage:  AspeCl TS|TO|TF
+
+      With the introduction of AspeCl the use of Apetime is now deprecated. AspeQt still supports Apetime as is
+      with no further development to adapt to future releases of Apetime (Ray Ataergin)
+    + MainWindow SIZE is now saved and restored (Ray Ataergin)
+    + Added a "Strip Line Numbers" option when saving text printer output to a PC file.
+      This will help ease the conversion of Atari based source programs printed through AspeQT for editing/compiling on a PC based IDE/Compiler (Ray Ataergin)
+    + Reorganized About Dialog content (Ray Ataergin) 
+    + MainWindow POSITION is now saved and restored (Ray Ataergin)
+    + Created and added an application icon, modified main window to use the new icon (Ray Ataergin).
+    + Fixed a keyboard shortcut conflict with Windows on text printer output window and reassigned keyboard shortcuts (Ray Ataergin)
+
+version 0.7
+    + Disk slots now show the filename without the path.
+	The directory path can be seen as a tooltip
+	to filename, and the full path+filename can be seen as a statusTip on the status bar. This makes it much easier to
+	read the mounted file/folder names. (Ray Ataergin)
+    + Decrease the latency on Win32 systems  (Matthias Reichl).
+    + Remove the retry limit when waiting for a command frame  (Matthias Reichl).
+    + Modified Atari text output to display Ascii/Atascii split screen window (Ray Ataergin)
+    + Added ATASCII font support for Atari text output (Ray Ataergin)
+    + Fixed problems with Pokey divisors 0 and 1 on PAL 800XL. Set the baudrates to values actually
+      supported by the FTDI chip to avoid possible rounding errors - resulting in too high speeds - (Matthias Reichl)
+    + Fixed small backslash-escape issue in the project file (Matthias Reichl)
+    + A (cosmetic) fix for the image size calculation in the "create image" dialog (Matthias Reichl)
+    + Added support for ATRs with 8192 byte sectors (Matthias Reichl)
+    + Added turkish translation (Ray Ataergin)
+    + Added option to send the Atari text output to a PC printer (Ray Ataergin)
+    + Added option to display documentation (Ray Ataergin)
+    + Relaxed the .atr integrity check rules to allow some .atr files that are larger than the
+      header value to be loaded (Ray Ataergin)
+
+version 0.6
+    + Added language selector and language selection based on system locale
+    + Added polish translation by Krzysztof Pyrkosz
+    * Many small fixes and improvements
+
+version 0.5.1
+    + Cassette image support
+    * Some cosmetic fixes in the log display
+
+version 0.5
+    + Higher speeds than x3 (57600) can be achieved if the serial port adaptor supports them
+    + New EXE booter with optional high speed SIO routines
+    + Drag drop support for files with EXE, COM and XEX extensions
+    + Preliminary printer emulation
+    + Text conversion for image explorer is now working properly under Windows
+    + Old temporary files resulting from crashes are now removed what AspeQt starts
+    * Fixed some race conditions that could cause problems with multiple cores/CPUs
+
+version 0.4
+    * Fixed an image explorer bug that caused crashes
+    + Added read-only SpartaDos support for image explorer
+
+version 0.3
+    + Image explorer for AtariDos / MyDos files
+    + Support for 512 bytes/sector ATR images
+    * Disk images are now opened using a temporary file
+    - Compressed and raw disk image support is temporarily removed
+    * Slightly improved folder images
+    * Many GUI changes
+    * Broken disk images are now rejected
+
+version 0.2
+    + Support for AtariSIO
+    * Windows serial I/O backend is entirely rewritten
+
+version 0.1
+    + First public release
