@@ -266,7 +266,7 @@ bool DiskImageAtx::readSector(quint16 sector, QByteArray &data)
 	if (wd1772status == 0xB7) {
 	    for (i=0;i<128;i++) {
 		//qDebug() << "!e" << tr("0x%02x").arg(data[i]);
-		if (data[i] == 0x33)
+        if (data[i] == (char)0x33)
 		    data[i] = rand() & 0xFF;
 	    }
 	    return true;
