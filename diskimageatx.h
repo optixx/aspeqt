@@ -54,6 +54,7 @@ protected:
     quint8 wd1772status;
     atx_file atx;
     int lastsector;
+    int phantomflip;
 };
 
 #endif // DISKIMAGEATX_H
