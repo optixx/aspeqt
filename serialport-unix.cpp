@@ -253,6 +253,9 @@ bool StandardSerialPortBackend::setSpeed(int speed)
 #endif
 
 #ifdef Q_OS_MAC
+    #ifndef IOSSIOSPEED
+    #define IOSSIOSPEED    _IOW('T', 2, speed_t)
+    #endif
 bool StandardSerialPortBackend::setSpeed(int speed)
 {
     termios tios;
@@ -283,21 +286,15 @@ bool StandardSerialPortBackend::setSpeed(int speed)
             cfsetospeed(&tios, B57600);
             break;
         default:
-            // configure port to use custom speed instead of 38400
-            //ioctl(mHandle, TIOCGSERIAL, &ss);
-            //ss.flags = (ss.flags & ~ASYNC_SPD_MASK) | ASYNC_SPD_CUST;
-            //ss.custom_divisor = (ss.baud_base + (speed / 2)) / speed;
-            //int customSpeed = ss.baud_base / ss.custom_divisor;
 
-            //if (customSpeed < speed * 98 / 100 || customSpeed > speed * 102 / 100) {
-            //    qCritical() << "!e" << tr("Cannot set serial port speed to %1: %2").arg(speed).arg(tr("Closest possible speed is %2.").arg(customSpeed));
-            //    return false;
-            //}
+            if (ioctl(mHandle, IOSSIOSPEED, &speed) < 0 ){
+                qCritical() << "!e" << tr("Failed to set serial port speed to %1").arg(speed);
+                return false;
+            }
 
-            //ioctl(mHandle, TIOCSSERIAL, &ss);
 
-            cfsetispeed(&tios, B38400);
-            cfsetospeed(&tios, B38400);
+            //cfsetispeed(&tios, B38400);
+            //cfsetospeed(&tios, B38400);
             break;
     }
 
