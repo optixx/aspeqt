@@ -1,8 +1,0 @@
-* Support for "fsk " chunks in .cas files and motor control
-* Write support for SpartaDos disks in the image explorer
-* Gzip, DCM, SCP and DI support
-* SpartaDos and MyDos support for folder images
-* Write support for folder images
-* Support for some Happy and XF551 commands
-* PseuDos
-* Faster log display

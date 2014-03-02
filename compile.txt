@@ -1,6 +1,0 @@
-Install the Qt 4.6 libraries and build tools then type the following in a terminal:
-
-qmake
-make
-
-That's all :)
