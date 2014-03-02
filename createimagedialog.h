@@ -1,7 +1,7 @@
 #ifndef CREATEIMAGEDIALOG_H
 #define CREATEIMAGEDIALOG_H
 
-#include <QtGui/QDialog>
+#include <QtWidgets/QDialog>
 
 namespace Ui {
     class CreateImageDialog;

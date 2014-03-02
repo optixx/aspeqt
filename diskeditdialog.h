@@ -1,7 +1,7 @@
 #ifndef DISKEDITDIALOG_H
 #define DISKEDITDIALOG_H
 
-#include <QtGui/QMainWindow>
+#include <QtWidgets/QMainWindow>
 
 namespace Ui {
     class DiskEditDialog;

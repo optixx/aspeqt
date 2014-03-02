@@ -4,7 +4,8 @@
 #include <QUrl>
 #include <QFileDialog>
 #include <QMessageBox>
-#include <QPrintDialog>
+#include <QtPrintSupport/QPrinter>
+#include <QtPrintSupport/QPrintDialog>
 #include <QTextEdit>
 #include <QPrinter>
 #include <QDebug>
@@ -141,12 +142,12 @@ bool MyModel::setData(const QModelIndex &index, const QVariant &value, int role)
         while (s.count() < 11) {
             s.append(' ');
         }
-        if (s.toAscii() == entries.at(index.row()).atariName) {
+        if (s.toLatin1() == entries.at(index.row()).atariName) {
             return false;
         }
-        if (fileSystem->rename(entries.at(index.row()), s.toAscii())) {
+        if (fileSystem->rename(entries.at(index.row()), s.toLatin1())) {
             AtariDirEntry entry = entries.at(index.row());
-            entry.atariName = s.toAscii();
+            entry.atariName = s.toLatin1();
             entries[index.row()] = entry;
             emit dataChanged(index, index);
             return true;
@@ -177,12 +178,12 @@ bool MyModel::setData(const QModelIndex &index, const QVariant &value, int role)
             b.append(' ');
         }
         s = b + s;
-        if (s.toAscii() == entries.at(index.row()).atariName) {
+        if (s.toLatin1() == entries.at(index.row()).atariName) {
             return false;
         }
-        if (fileSystem->rename(entries.at(index.row()), s.toAscii())) {
+        if (fileSystem->rename(entries.at(index.row()), s.toLatin1())) {
             AtariDirEntry entry = entries.at(index.row());
-            entry.atariName = s.toAscii();
+            entry.atariName = s.toLatin1();
             entries[index.row()] = entry;
             emit dataChanged(index, index);
             return true;

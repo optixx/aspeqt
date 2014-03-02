@@ -7,8 +7,8 @@
 class AbstractSerialPortBackend : public QObject
 {
     Q_OBJECT
-    Q_ENUMS(MessageType::UiMessageType)
-    Q_ENUMS(SerialLine)
+    //Q_ENUMS(MessageType::UiMessageType)
+    //Q_ENUMS(SerialLine)
 
 public:
     AbstractSerialPortBackend(QObject *parent = 0);

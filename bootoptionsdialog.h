@@ -1,7 +1,7 @@
 #ifndef BOOTOPTIONSDIALOG_H
 #define BOOTOPTIONSDIALOG_H
 
-#include <QtGui/QDialog>
+#include <QtWidgets/QDialog>
 #include <QDebug>
 #include <QAbstractButton>
 

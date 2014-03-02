@@ -5,8 +5,8 @@
 DEFINES += VERSION=\\\"0.8.8\\\"
 TARGET = aspeqt
 TEMPLATE = app
-CONFIG += qt
-QT += core gui network
+CONFIG += qt console
+QT += core gui network widgets printsupport
 CONFIG += mobility
 MOBILITY = bearer
 SOURCES += main.cpp \

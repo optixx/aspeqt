@@ -1,6 +1,6 @@
 #ifndef NETWORK_H
 #define NETWORK_H
-#include <QtGui/QMainWindow>
+#include <QtWidgets/QMainWindow>
 #include <QPointer>
 #include <QTimer>
 #include <QMessageBox>

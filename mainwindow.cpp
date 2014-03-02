@@ -18,6 +18,9 @@
 #include <QScrollBar>
 #include <QTranslator>
 #include <QMessageBox>
+#include <QWidget>
+#include <QDrag>
+#include <QtDebug>
 
 #include "atarifilesystem.h"
 #include "miscutils.h"
@@ -44,10 +47,11 @@ bool g_disablePicoHiSpeed;
 // Warning         (brown)         "!w"
 // Error           (red)           "!e"
 
-void logMessageOutput(QtMsgType type, const char *msg)
+void logMessageOutput(QtMsgType type, const QMessageLogContext &context, const QString &msg)
+//void logMessageOutput(QtMsgType type, const char *msg)
 {
     logMutex->lock();
-    logFile->write(QString::number((quint64)QThread::currentThreadId(), 16).toAscii());
+    logFile->write(QString::number((quint64)QThread::currentThreadId(), 16).toLatin1());
     switch (type) {
         case QtDebugMsg:
             logFile->write(": [Debug]    ");
@@ -62,7 +66,9 @@ void logMessageOutput(QtMsgType type, const char *msg)
             logFile->write(": [Fatal]    ");
             break;
     }
-    logFile->write(msg);
+    QByteArray localMsg = msg.toLocal8Bit();
+    QByteArray displayMsg = localMsg.mid(3);
+    logFile->write(displayMsg);
     logFile->write("\n");
     if (type == QtFatalMsg) {
         logFile->close();
@@ -76,7 +82,7 @@ void logMessageOutput(QtMsgType type, const char *msg)
             return;
         }
 #endif
-        mainWindow->doLogMessage(msg[1], QString::fromLocal8Bit(msg+3));
+        mainWindow->doLogMessage(localMsg.at(0), displayMsg);
     }
 }
 
@@ -93,11 +99,13 @@ MainWindow::MainWindow(QWidget *parent)
     mainWindow = this;
     g_aspeQtAppPath = QCoreApplication::applicationDirPath();
     g_disablePicoHiSpeed = false;
+
     logFile = new QFile(QDir::temp().absoluteFilePath("aspeqt.log"));
+    //logFile = new QFile("/tmp/aspeqt.log");
     logFile->open(QFile::WriteOnly | QFile::Truncate | QFile::Unbuffered | QFile::Text);
     logMutex = new QMutex();
     connect(this, SIGNAL(logMessage(int,QString)), this, SLOT(uiMessage(int,QString)), Qt::QueuedConnection);
-    qInstallMsgHandler(logMessageOutput);
+    qInstallMessageHandler(logMessageOutput);
     qDebug() << "!d" << tr("AspeQt started at %1.").arg(QDateTime::currentDateTime().toString());
 
     /* Remove old temporaries */
@@ -125,7 +133,7 @@ MainWindow::MainWindow(QWidget *parent)
 
     QStringList AspeQtArgs = QCoreApplication::arguments();
     g_sessionFile = g_sessionFilePath = "";
-    if (QCoreApplication::argc() > 1) {
+    if (AspeQtArgs.size() > 1) {
        QFile sess;
        QString s = QDir::separator();             // Ray A.
        int i = AspeQtArgs.at(1).lastIndexOf(s);   // Ray A.
@@ -297,7 +305,7 @@ MainWindow::~MainWindow()
     delete ui;
 
     qDebug() << "!d" << tr("AspeQt stopped at %1.").arg(QDateTime::currentDateTime().toString());
-    qInstallMsgHandler(0);
+    qInstallMessageHandler(0);
     delete logMutex;
     delete logFile;
 }
@@ -309,7 +317,8 @@ MainWindow::~MainWindow()
      if (event->button() == Qt::LeftButton
          && slot >= 0) {
 
-         QDrag *drag = new QDrag(this);
+
+         QDrag *drag = new QDrag((QWidget*)this);
          QMimeData *mimeData = new QMimeData;
 
          mimeData->setData("application/x-aspeqt-disk-image", QByteArray(1, slot));

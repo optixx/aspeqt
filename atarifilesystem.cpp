@@ -92,12 +92,12 @@ QString AtariDirEntry::niceName() const
 
 QString AtariDirEntry::baseName() const
 {
-    return QString::fromAscii(atariName.left(8).constData()).trimmed();
+    return QString::fromLatin1(atariName.left(8).constData()).trimmed();
 }
 
 QString AtariDirEntry::suffix() const
 {
-    return QString::fromAscii(atariName.right(3).constData()).trimmed();
+    return QString::fromLatin1(atariName.right(3).constData()).trimmed();
 }
 
 QString AtariDirEntry::attributeNames() const
@@ -341,7 +341,7 @@ QByteArray AtariFileSystem::findName(quint16 dir, QString name)
             atariName.append(" ");
         }
         atariName.append(extension);
-        result = atariName.toAscii();
+        result = atariName.toLatin1();
         bool found = false;
         foreach (AtariDirEntry e, entries) {
             if (e.atariName == result) {

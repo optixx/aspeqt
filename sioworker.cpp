@@ -277,7 +277,7 @@ bool CassetteWorker::loadCasImage(const QString &fileName)
     }
 
     if (!data.isEmpty()) {
-        qDebug() << "!n" << tr("[Cassette]: File description '%2'.").arg(QString::fromAscii(data));
+        qDebug() << "!n" << tr("[Cassette]: File description '%2'.").arg(QString::fromLatin1(data));
     }
 
     int lastBaud = 600;

@@ -8,12 +8,22 @@
 
 #include <string.h>
 #include <fcntl.h>
-#include <stropts.h>
-#include <termio.h>
 #include <errno.h>
 #include <sys/types.h>
-#include <linux/serial.h>
 #include <unistd.h>
+#ifdef Q_OS_UNIX
+    #ifdef Q_OS_LINUX
+        #include <stropts.h>
+        #include <termio.h>
+        #include <linux/serial.h>
+    #endif
+
+    #ifdef Q_OS_MAC
+        #include <termios.h>
+        #include <sys/ioctl.h>
+        #define IOSSIOSPEED    _IOW('T', 2, speed_t)
+    #endif
+#endif
 
 AbstractSerialPortBackend::AbstractSerialPortBackend(QObject *parent)
     : QObject(parent)
@@ -37,10 +47,19 @@ StandardSerialPortBackend::~StandardSerialPortBackend()
     }
 }
 
+#ifdef Q_OS_LINUX
 QString StandardSerialPortBackend::defaultPortName()
 {
     return QString("/dev/ttyS0");
 }
+#endif
+
+#ifdef Q_OS_MAC
+QString StandardSerialPortBackend::defaultPortName()
+{
+    return QString("/dev/tty.usbserial");
+}
+#endif
 
 bool StandardSerialPortBackend::open()
 {
@@ -167,6 +186,7 @@ bool StandardSerialPortBackend::setHighSpeed()
     }
 }
 
+#ifdef Q_OS_LINUX
 bool StandardSerialPortBackend::setSpeed(int speed)
 {
     termios tios;
@@ -229,6 +249,62 @@ bool StandardSerialPortBackend::setSpeed(int speed)
     mSpeed = speed;
     return true;
 }
+#endif
+#ifdef Q_OS_MAC
+bool StandardSerialPortBackend::setSpeed(int speed)
+{
+    termios tios;
+
+    tcgetattr(mHandle, &tios);
+    tios.c_cflag &= ~CSTOPB;
+    cfmakeraw(&tios);
+    tios.c_cflag = CREAD | CLOCAL;     // turn on READ
+    tios.c_cflag |= CS8;
+    tios.c_cc[VMIN] = 0;
+    tios.c_cc[VTIME] = 10;     // 1 sec timeout
+
+    if (ioctl(mHandle, TIOCSETA, &tios) != 0) {
+        qCritical() << "!e" << tr("Failed to set serial attrs");
+        return false;
+    }
+    switch (speed) {
+        case 600:
+            cfsetispeed(&tios, B600);
+            cfsetospeed(&tios, B600);
+            break;
+        case 19200:
+            cfsetispeed(&tios, B19200);
+            cfsetospeed(&tios, B19200);
+            break;
+        case 38400:
+            cfsetispeed(&tios, B38400);
+            cfsetospeed(&tios, B38400);
+            break;
+        case 57600:
+            cfsetispeed(&tios, B57600);
+            cfsetospeed(&tios, B57600);
+            break;
+        default:
+           if (ioctl(mHandle, IOSSIOSPEED, &speed) < 0 ){
+                qCritical() << "!e" << tr("Failed to set serial port speed to %1").arg(speed);
+                return false;
+            }
+           break;
+    }
+
+    /* Set serial port state */
+    if (tcsetattr(mHandle, TCSANOW, &tios) != 0) {
+        qCritical() << "!e" << tr("Cannot set serial port speed to %1: %2")
+                       .arg(speed)
+                       .arg(lastErrorMessage());
+        return false;
+    }
+   emit statusChanged(tr("%1 bits/sec").arg(speed));
+    qWarning() << "!i" << tr("Serial port speed set to %1.").arg(speed);
+    mSpeed = speed;
+    return true;
+}
+#endif
 
 int StandardSerialPortBackend::speed()
 {
@@ -289,7 +365,6 @@ QByteArray StandardSerialPortBackend::readCommandFrame()
         }
 
         data = readDataFrame(4, false);
-
         if (!data.isEmpty()) {
             do {
                 if (ioctl(mHandle, TIOCMGET, &status) < 0) {
@@ -443,9 +518,8 @@ bool StandardSerialPortBackend::writeRawFrame(const QByteArray &data)
     total = 0;
     rest = data.count();
     QTime startTime = QTime::currentTime();
-    int timeOut = data.count() * 12000 / mSpeed + 10;
+    int timeOut = data.count() * 120000 / mSpeed + 10;
     int elapsed;
-
     if (tcdrain(mHandle) != 0) {
         qCritical() << "!e" << tr("Cannot flush serial port write buffer: %1")
                        .arg(lastErrorMessage());
@@ -468,7 +542,7 @@ bool StandardSerialPortBackend::writeRawFrame(const QByteArray &data)
     } while (total < (uint)data.count() && elapsed > -timeOut);
 
     if (total != (uint)data.count()) {
-        qCritical() << "!e" << tr("Serial port write timeout.");
+        qCritical() << "!e" << tr("Serial port write timeout. (%1 of %2 written)").arg(total).arg(data.count());
         return false;
     }
 

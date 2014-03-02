@@ -331,11 +331,11 @@ bool FolderImage::readSector(quint16 sector, QByteArray &data)
                 int first = 369 + i;
                 entry[3] = first % 256;
                 entry[4] = first / 256;
-                entry += atariFiles[i].atariName.toAscii();
+                entry += atariFiles[i].atariName.toLatin1();
                 while (entry.count() < 13) {
                     entry += 32;
                 }
-                entry += atariFiles[i].atariExt.toAscii();
+                entry += atariFiles[i].atariExt.toLatin1();
                 while (entry.count() < 16) {
                     entry += 32;
                 }
