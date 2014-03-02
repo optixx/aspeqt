@@ -4,6 +4,10 @@
 #include <QUrl>
 #include <QFileDialog>
 #include <QMessageBox>
+#include <QPrintDialog>
+#include <QTextEdit>
+#include <QPrinter>
+#include <QDebug>
 
 #include "aspeqtsettings.h"
 #include "miscutils.h"
@@ -223,7 +227,6 @@ QVariant MyModel::headerData (int section, Qt::Orientation orientation, int role
     if (role != Qt::DisplayRole || orientation != Qt::Horizontal) {
         return QVariant();
     }
-
     switch (section) {
     case 0:
         return tr("No");
@@ -636,4 +639,31 @@ void DiskEditDialog::on_actionAddFiles_triggered()
         return;
     }
     model->insertFiles(files);
+}
+
+// Ray A.
+void DiskEditDialog::on_actionPrint_triggered()
+{
+
+    QPrinter printer;
+
+    QPrintDialog *dialog = new QPrintDialog(&printer, this);
+    if (dialog->exec() != QDialog::Accepted)
+    return;
+
+    QTextEdit dirlist;
+    QString fname, ext;
+    int size;
+    dirlist.clear();
+    dirlist.append("Name\tExt\tSize");
+    dirlist.append("========\t===\t====");
+
+    for (int row = 0; row < model->entries.size(); row++) {
+        fname =  model->entries.at(row).atariName.left(8);
+        ext = model->entries.at(row).atariName.right(3);
+        size = model->entries.at(row).size;
+        dirlist.append(fname + "\t" + ext + "\t" + QString("%1").arg(size));
+    }
+
+    dirlist.print(&printer);
 }

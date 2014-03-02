@@ -14,6 +14,10 @@ public:
     AutoBootDialog(QWidget *parent = 0);
     ~AutoBootDialog();
 
+// Add keep open signal // Ray A.
+signals:
+    void keepOpen();
+
 protected:
     void changeEvent(QEvent *e);
 

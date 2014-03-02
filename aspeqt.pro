@@ -1,10 +1,14 @@
 # -------------------------------------------------
 # Project created by QtCreator 2009-11-22T14:13:00
+# Last Update: March 10, 2013
 # -------------------------------------------------
-DEFINES += VERSION=\\\"0.8.1\\\"
+DEFINES += VERSION=\\\"0.8.8\\\"
 TARGET = aspeqt
 TEMPLATE = app
 CONFIG += qt
+QT += core gui network
+CONFIG += mobility
+MOBILITY = bearer
 SOURCES += main.cpp \
     mainwindow.cpp \
     sioworker.cpp \
@@ -24,7 +28,9 @@ SOURCES += main.cpp \
     miscutils.cpp \
     textprinterwindow.cpp \
     cassettedialog.cpp \
-    docdisplaywindow.cpp
+    docdisplaywindow.cpp \
+    bootoptionsdialog.cpp \
+    network.cpp
 win32:LIBS += -lwinmm
 unix:LIBS += -lz
 win32:SOURCES += serialport-win32.cpp
@@ -48,7 +54,9 @@ HEADERS += mainwindow.h \
     miscutils.h \
     textprinterwindow.h \
     cassettedialog.h \
-    docdisplaywindow.h
+    docdisplaywindow.h \
+    bootoptionsdialog.h \
+    network.h
 win32:HEADERS += serialport-win32.h
 unix:HEADERS += serialport-unix.h
 FORMS += mainwindow.ui \
@@ -60,20 +68,36 @@ FORMS += mainwindow.ui \
     textprinterwindow.ui \
     cassettedialog.ui \
     helpcontentwindow.ui \
-    docdisplaywindow.ui
+    docdisplaywindow.ui \
+    bootoptionsdialog.ui
 RESOURCES += icons.qrc \
     atarifiles.qrc \
-    i18n.qrc
-OTHER_FILES += todo.txt \
-    readme.txt \
+    i18n.qrc \
+    documentation.qrc \
+    images.qrc
+OTHER_FILES += \
     license.txt \
-    compile.txt \
     history.txt \
     atascii_read_me.txt \
     atari/aspecl/aspecl.asm \
-    AspeQt.rc
+    AspeQt.rc \
+    AspeQt User Manual.html \
+    about.html
 TRANSLATIONS = i18n/aspeqt_pl.ts \
                i18n/aspeqt_tr.ts \
                i18n/aspeqt_ru.ts \
-               i18n/qt_pl.ts
+               i18n/aspeqt_sk.ts \
+               i18n/aspeqt_de.ts \
+               i18n/aspeqt_es.ts \
+               i18n/qt_pl.ts \
+               i18n/qt_tr.ts \
+               i18n/qt_ru.ts \
+               i18n/qt_sk.ts \
+               i18n/qt_de.ts \
+               i18n/qt_es.ts
+
 RC_FILE = AspeQt.rc \
+
+
+
+

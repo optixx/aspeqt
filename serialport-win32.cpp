@@ -38,6 +38,7 @@ QString StandardSerialPortBackend::defaultPortName()
 
 bool StandardSerialPortBackend::open()
 {
+    Sleep(250);        // Ray. A
     if (isOpen()) {
         close();
     }

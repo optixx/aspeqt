@@ -12,8 +12,10 @@ public:
     QFileInfo original;
     QString atariName;
     QString atariExt;
-    quint64 pos;
+    QString longName;       // Ray A.
     int lastSector;
+    quint64 pos;
+    quint64 prevPos;        // Ray A.
 };
 
 class FolderImage : public SimpleDiskImage
@@ -23,8 +25,9 @@ class FolderImage : public SimpleDiskImage
 protected:
     QDir dir;
     bool mReadOnly;
-    AtariFile atariFiles[64];
     void buildDirectory();
+    AtariFile atariFiles[64];
+    int atariFileNo;             // Ray A.
 
 public:
     FolderImage(SioWorker *worker): SimpleDiskImage(worker) {}
@@ -35,7 +38,9 @@ public:
     bool readSector(quint16 sector, QByteArray &data);
     bool writeSector(quint16 sector, const QByteArray &data);
     bool format(quint16 aSectorCount, quint16 aSectorSize);
+    QString longName (QString &lastMountedFolder, QString &atariFileName);   // Ray A.
     QString description() const {return tr("Folder image");}
 };
+    extern FolderImage *folderImage;
 
 #endif // FOLDERIMAGE_H

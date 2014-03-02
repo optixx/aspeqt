@@ -21,12 +21,14 @@
 #include "textprinterwindow.h"
 // Ray A.
 #include "docdisplaywindow.h"
+#include "network.h"
+
+#define g_numberOfDisks 15
 
 namespace Ui
 {
     class MainWindow;
 }
-
 class DiskWidgets
 {
 public:
@@ -34,6 +36,7 @@ public:
     QLabel *imagePropertiesLabel;
     QAction *saveAction;
     QAction *autoSaveAction;        // Ray A.
+    QAction *bootOptionAction;      // Ray A.
     QAction *saveAsAction;
     QAction *revertAction;
     QAction *mountDiskAction;
@@ -51,20 +54,26 @@ class MainWindow : public QMainWindow
 public:
     MainWindow(QWidget *parent = 0);
     ~MainWindow();
+    QString g_sessionFile;
+    QString g_sessionFilePath;
+    QString g_mainWindowTitle;
 
 public slots:
     void show();
+    int firstEmptyDiskSlot(int startFrom = 0, bool createOne = true);       // Ray A.
+    void mountFileWithDefaultProtection(int no, const QString &fileName);   // Ray A.
+    void autoCommit(int no);                                                // Ray A.
+    void folderPath(int slot);                                              // Ray A.
 
 private:
     int untitledName;
     Ui::MainWindow *ui;
     SioWorker *sio;
     bool shownFirstTime;
-    DiskWidgets diskWidgets[8];
-    QLabel *speedLabel, *onOffLabel, *clearMessagesLabel;
+    DiskWidgets diskWidgets[g_numberOfDisks];    // Ray A.
+    QLabel *speedLabel, *onOffLabel, *clearMessagesLabel, *netLabel;
     TextPrinterWindow *textPrinterWindow;
-    // Ray A.
-    DocDisplayWindow *docDisplayWindow;
+    DocDisplayWindow *docDisplayWindow;    // Ray A.
     QTranslator aspeqt_translator, aspeqt_qt_translator;
     QSystemTrayIcon trayIcon;
     Qt::WindowFlags oldWindowFlags;
@@ -72,23 +81,22 @@ private:
     QString lastMessage;
     int lastMessageRepeat;
     
+    void setSession();  // Ray A.
     void updateRecentFileActions();
-    int firstEmptyDiskSlot(int startFrom = 0, bool createOne = true);
     int containingDiskSlot(const QPoint &point);
     void bootExe(const QString &fileName);
     void mountFile(int no, const QString &fileName, bool prot);
-    void mountFileWithDefaultProtection(int no, const QString &fileName);
     void mountDiskImage(int no);
     void mountFolderImage(int no);
     bool ejectImage(int no, bool ask = true);
     void toggleWriteProtection(int no);
     void openEditor(int no);
     void saveDisk(int no);
-    void autoSaveDisk(int no);  // Ray A.
     void saveDiskAs(int no);
     void revertDisk(int no);
     QMessageBox::StandardButton saveImageWhenClosing(int no, QMessageBox::StandardButton previousAnswer, int number);
     void loadTranslators();
+    void autoSaveDisk(int no);                                              // Ray A.
 
 protected:
     void mousePressEvent(QMouseEvent *event);
@@ -101,6 +109,9 @@ protected:
 
 signals:
     void logMessage(int type, const QString &msg);
+    void newSlot (int slot);                            // Ray A.
+    void fileMounted(bool mounted);                     // Ray A.
+    void takeFolderPath (QString fPath);                // Ray A.
 
 public:
     void doLogMessage(int type, const QString &msg);
@@ -130,6 +141,14 @@ private slots:
     void on_actionMountDisk_6_triggered();
     void on_actionMountDisk_7_triggered();
     void on_actionMountDisk_8_triggered();
+    // Ray A.
+    void on_actionMountDisk_9_triggered();
+    void on_actionMountDisk_10_triggered();
+    void on_actionMountDisk_11_triggered();
+    void on_actionMountDisk_12_triggered();
+    void on_actionMountDisk_13_triggered();
+    void on_actionMountDisk_14_triggered();
+    void on_actionMountDisk_15_triggered();
 
     void on_actionMountFolder_1_triggered();
     void on_actionMountFolder_2_triggered();
@@ -139,6 +158,14 @@ private slots:
     void on_actionMountFolder_6_triggered();
     void on_actionMountFolder_7_triggered();
     void on_actionMountFolder_8_triggered();
+    // Ray A.
+    void on_actionMountFolder_9_triggered();
+    void on_actionMountFolder_10_triggered();
+    void on_actionMountFolder_11_triggered();
+    void on_actionMountFolder_12_triggered();
+    void on_actionMountFolder_13_triggered();
+    void on_actionMountFolder_14_triggered();
+    void on_actionMountFolder_15_triggered();
 
     void on_actionEject_1_triggered();
     void on_actionEject_2_triggered();
@@ -148,6 +175,14 @@ private slots:
     void on_actionEject_6_triggered();
     void on_actionEject_7_triggered();
     void on_actionEject_8_triggered();
+    // Ray A.
+    void on_actionEject_9_triggered();
+    void on_actionEject_10_triggered();
+    void on_actionEject_11_triggered();
+    void on_actionEject_12_triggered();
+    void on_actionEject_13_triggered();
+    void on_actionEject_14_triggered();
+    void on_actionEject_15_triggered();
 
     void on_actionWriteProtect_1_triggered();
     void on_actionWriteProtect_2_triggered();
@@ -157,6 +192,14 @@ private slots:
     void on_actionWriteProtect_6_triggered();
     void on_actionWriteProtect_7_triggered();
     void on_actionWriteProtect_8_triggered();
+    // Ray A.
+    void on_actionWriteProtect_9_triggered();
+    void on_actionWriteProtect_10_triggered();
+    void on_actionWriteProtect_11_triggered();
+    void on_actionWriteProtect_12_triggered();
+    void on_actionWriteProtect_13_triggered();
+    void on_actionWriteProtect_14_triggered();
+    void on_actionWriteProtect_15_triggered();
 
     void on_actionMountRecent_0_triggered();
     void on_actionMountRecent_1_triggered();
@@ -177,6 +220,14 @@ private slots:
     void on_actionEditDisk_6_triggered();
     void on_actionEditDisk_7_triggered();
     void on_actionEditDisk_8_triggered();
+    // Ray A.
+    void on_actionEditDisk_9_triggered();
+    void on_actionEditDisk_10_triggered();
+    void on_actionEditDisk_11_triggered();
+    void on_actionEditDisk_12_triggered();
+    void on_actionEditDisk_13_triggered();
+    void on_actionEditDisk_14_triggered();
+    void on_actionEditDisk_15_triggered();
 
     void on_actionSave_1_triggered();
     void on_actionSave_2_triggered();
@@ -186,7 +237,16 @@ private slots:
     void on_actionSave_6_triggered();
     void on_actionSave_7_triggered();
     void on_actionSave_8_triggered();
-// Ray A.
+    // Ray A.
+    void on_actionSave_9_triggered();
+    void on_actionSave_10_triggered();
+    void on_actionSave_11_triggered();
+    void on_actionSave_12_triggered();
+    void on_actionSave_13_triggered();
+    void on_actionSave_14_triggered();
+    void on_actionSave_15_triggered();
+
+    // Ray A.
     void on_actionAutoSave_1_triggered();
     void on_actionAutoSave_2_triggered();
     void on_actionAutoSave_3_triggered();
@@ -195,7 +255,14 @@ private slots:
     void on_actionAutoSave_6_triggered();
     void on_actionAutoSave_7_triggered();
     void on_actionAutoSave_8_triggered();
-//
+    void on_actionAutoSave_9_triggered();
+    void on_actionAutoSave_10_triggered();
+    void on_actionAutoSave_11_triggered();
+    void on_actionAutoSave_12_triggered();
+    void on_actionAutoSave_13_triggered();
+    void on_actionAutoSave_14_triggered();
+    void on_actionAutoSave_15_triggered();
+
     void on_actionSaveAs_1_triggered();
     void on_actionSaveAs_2_triggered();
     void on_actionSaveAs_3_triggered();
@@ -204,6 +271,14 @@ private slots:
     void on_actionSaveAs_6_triggered();
     void on_actionSaveAs_7_triggered();
     void on_actionSaveAs_8_triggered();
+    // Ray A.
+    void on_actionSaveAs_9_triggered();
+    void on_actionSaveAs_10_triggered();
+    void on_actionSaveAs_11_triggered();
+    void on_actionSaveAs_12_triggered();
+    void on_actionSaveAs_13_triggered();
+    void on_actionSaveAs_14_triggered();
+    void on_actionSaveAs_15_triggered();
 
     void on_actionRevert_1_triggered();
     void on_actionRevert_2_triggered();
@@ -213,6 +288,16 @@ private slots:
     void on_actionRevert_6_triggered();
     void on_actionRevert_7_triggered();
     void on_actionRevert_8_triggered();
+    // Ray A.
+    void on_actionRevert_9_triggered();
+    void on_actionRevert_10_triggered();
+    void on_actionRevert_11_triggered();
+    void on_actionRevert_12_triggered();
+    void on_actionRevert_13_triggered();
+    void on_actionRevert_14_triggered();
+    void on_actionRevert_15_triggered();
+    void on_actionBootOption_triggered();
+
 
     void sioFinished();
     void sioStarted();
@@ -223,6 +308,7 @@ private slots:
     void deviceStatusChanged(int deviceNo);
     void uiMessage(int t, const QString message);
     void trayIconActivated(QSystemTrayIcon::ActivationReason reason);
+    void keepBootExeOpen();
 };
 
 #endif // MAINWINDOW_H

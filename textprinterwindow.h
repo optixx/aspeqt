@@ -12,6 +12,7 @@ class TextPrinterWindow : public QMainWindow {
 public:
     TextPrinterWindow(QWidget *parent = 0);
     ~TextPrinterWindow();
+
 protected:
     void changeEvent(QEvent *e);
     void closeEvent(QCloseEvent *e);
@@ -23,9 +24,9 @@ private slots:
     void on_actionSave_triggered();
     void on_actionClear_triggered();
     void on_actionWord_wrap_triggered();
-
-    // Ray A.
     void on_actionPrint_triggered();
+
+    // To manipulate fonts and ascii/atascii windows  // Ray A.
     void print(const QString &text);
     void on_actionAtasciiFont_triggered();
     void on_actionFont_Size_triggered();

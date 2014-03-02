@@ -114,6 +114,12 @@
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
   <widget class="QToolBar" name="toolBar">
+   <property name="sizePolicy">
+    <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+     <horstretch>0</horstretch>
+     <verstretch>0</verstretch>
+    </sizepolicy>
+   </property>
    <property name="windowTitle">
     <string>toolBar</string>
    </property>
@@ -334,8 +340,8 @@
     <bool>true</bool>
    </property>
    <property name="icon">
-    <iconset>
-     <normaloff>silk-icons/icons/cut_red.png</normaloff>silk-icons/icons/cut_red.png</iconset>
+    <iconset resource="icons.qrc">
+     <normaloff>:/icons/silk-icons/icons/cut_red.png</normaloff>:/icons/silk-icons/icons/cut_red.png</iconset>
    </property>
    <property name="text">
     <string>Strip Line Numbers</string>

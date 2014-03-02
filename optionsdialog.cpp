@@ -1,7 +1,7 @@
 #include "optionsdialog.h"
 #include "ui_optionsdialog.h"
-
 #include "aspeqtsettings.h"
+
 #include <QTranslator>
 #include <QDir>
 
@@ -38,7 +38,9 @@ OptionsDialog::OptionsDialog(QWidget *parent) :
     m_ui->emulationHighSpeedExeLoaderBox->setChecked(aspeqtSettings->useHighSpeedExeLoader());
     m_ui->emulationUseCustomCasBaudBox->setChecked(aspeqtSettings->useCustomCasBaud());
     m_ui->emulationCustomCasBaudSpin->setValue(aspeqtSettings->customCasBaud());
-    m_ui->minimizeToTrayBox->setChecked(aspeqtSettings->minimizeToTray());
+    m_ui->minimizeToTrayBox->setChecked(aspeqtSettings->minimizeToTray());    
+    m_ui->saveWinPosBox->setChecked(aspeqtSettings->saveWindowsPos()); // Ray A.
+    m_ui->filterUscore->setChecked(aspeqtSettings->filterUnderscore());
 
     switch (aspeqtSettings->backend()) {
         case 0:
@@ -57,22 +59,22 @@ OptionsDialog::OptionsDialog(QWidget *parent) :
     
     /* list available translations */
     QTranslator local_translator;
-    m_ui->i18nLaguageCombo->clear();
-    m_ui->i18nLaguageCombo->addItem(tr("Automatic"), "auto");
+    m_ui->i18nLanguageCombo->clear();
+    m_ui->i18nLanguageCombo->addItem(tr("Automatic"), "auto");
     if (aspeqtSettings->i18nLanguage().compare("auto") == 0)
-      m_ui->i18nLaguageCombo->setCurrentIndex(0);
-    m_ui->i18nLaguageCombo->addItem(QT_TR_NOOP("English"), "en");
+      m_ui->i18nLanguageCombo->setCurrentIndex(0);
+    m_ui->i18nLanguageCombo->addItem(QT_TR_NOOP("English"), "en");
     if (aspeqtSettings->i18nLanguage().compare("en") == 0)
-      m_ui->i18nLaguageCombo->setCurrentIndex(1);
+      m_ui->i18nLanguageCombo->setCurrentIndex(1);
     QDir dir(":/translations/i18n/");
     QStringList filters;
     filters << "aspeqt_*.qm";
     dir.setNameFilters(filters);
     for (int i = 0; i < dir.entryList().size(); ++i) {
         local_translator.load(":/translations/i18n/" + dir.entryList()[i]);
-	m_ui->i18nLaguageCombo->addItem(local_translator.translate("OptionsDialog", "English"), dir.entryList()[i].mid(7).replace(".qm", ""));
+    m_ui->i18nLanguageCombo->addItem(local_translator.translate("OptionsDialog", "English"), dir.entryList()[i].mid(7).replace(".qm", ""));
 	if (dir.entryList()[i].mid(7).replace(".qm", "").compare(aspeqtSettings->i18nLanguage()) == 0) {
-	    m_ui->i18nLaguageCombo->setCurrentIndex(i+2);
+        m_ui->i18nLanguageCombo->setCurrentIndex(i+2);
 	}
     }
 }
@@ -101,23 +103,25 @@ void OptionsDialog::OptionsDialog_accepted()
     aspeqtSettings->setSerialPortMaximumSpeed(m_ui->serialPortBaudCombo->currentIndex());
     aspeqtSettings->setSerialPortUsePokeyDivisors(m_ui->serialPortUseDivisorsBox->isChecked());
     aspeqtSettings->setSerialPortPokeyDivisor(m_ui->serialPortDivisorEdit->value());
-    
+
     aspeqtSettings->setAtariSioDriverName(m_ui->atariSioDriverNameEdit->text());
     aspeqtSettings->setAtariSioHandshakingMethod(m_ui->atariSioHandshakingMethodCombo->currentIndex());
-    
+
     aspeqtSettings->setUseHighSpeedExeLoader(m_ui->emulationHighSpeedExeLoaderBox->isChecked());
     aspeqtSettings->setUseCustomCasBaud(m_ui->emulationUseCustomCasBaudBox->isChecked());
     aspeqtSettings->setCustomCasBaud(m_ui->emulationCustomCasBaudSpin->value());
     aspeqtSettings->setMinimizeToTray(m_ui->minimizeToTrayBox->isChecked());
-    
+    aspeqtSettings->setsaveWindowsPos(m_ui->saveWinPosBox->isChecked());
+    aspeqtSettings->setfilterUnderscore(m_ui->filterUscore->isChecked());
+
     int backend = 0;
     if (itemAtariSio->checkState(0) == Qt::Checked) {
         backend = 1;
     }
 
     aspeqtSettings->setBackend(backend);
-    
-    aspeqtSettings->setI18nLanguage(m_ui->i18nLaguageCombo->itemData(m_ui->i18nLaguageCombo->currentIndex()).toString());
+
+    aspeqtSettings->setI18nLanguage(m_ui->i18nLanguageCombo->itemData(m_ui->i18nLanguageCombo->currentIndex()).toString());
 }
 
 void OptionsDialog::on_treeWidget_currentItemChanged(QTreeWidgetItem* current, QTreeWidgetItem* /*previous*/)

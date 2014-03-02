@@ -15,14 +15,6 @@ signals:
     void print(const QString &text);
 };
 
-class ApeTime: public SioDevice
-{
-    Q_OBJECT
-
-public:
-    ApeTime(SioWorker *worker): SioDevice(worker) {}
-    void handleCommand(quint8 command, quint16 aux);
-};
 // AspeQt Time Server // Ray A.
 class AspeCl: public SioDevice
 {
@@ -31,6 +23,16 @@ class AspeCl: public SioDevice
 public:
     AspeCl(SioWorker *worker): SioDevice(worker) {}
     void handleCommand(quint8 command, quint16 aux);
+
+public slots:
+    void gotNewSlot (int slot);                         // Ray A.
+    void fileMounted (bool mounted);                    // Ray A.
+
+signals:
+    void findNewSlot (int startFrom, bool createOne);
+    void mountFile (int no, const QString fileName);
+    void toggleAutoCommit (int no);                     // Ray A.
+
 };
 
 #endif // MISCDEVICES_H

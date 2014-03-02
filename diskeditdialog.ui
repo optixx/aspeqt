@@ -2,6 +2,9 @@
 <ui version="4.0">
  <class>DiskEditDialog</class>
  <widget class="QMainWindow" name="DiskEditDialog">
+  <property name="windowModality">
+   <enum>Qt::NonModal</enum>
+  </property>
   <property name="geometry">
    <rect>
     <x>0</x>
@@ -135,6 +138,7 @@
    <addaction name="actionDeleteSelectedFiles"/>
    <addaction name="separator"/>
    <addaction name="actionTextConversion"/>
+   <addaction name="actionPrint"/>
   </widget>
   <action name="actionToParent">
    <property name="icon">
@@ -221,6 +225,18 @@
    </property>
    <property name="shortcut">
     <string>Del</string>
+   </property>
+  </action>
+  <action name="actionPrint">
+   <property name="icon">
+    <iconset resource="icons.qrc">
+     <normaloff>:/icons/silk-icons/icons/printer.png</normaloff>:/icons/silk-icons/icons/printer.png</iconset>
+   </property>
+   <property name="text">
+    <string>Print</string>
+   </property>
+   <property name="toolTip">
+    <string>Print Directory Listing</string>
    </property>
   </action>
  </widget>

@@ -207,9 +207,6 @@ QString SioWorker::deviceName(int device)
 	case 0x43:
             result = tr("Printer %1").arg((device & 0x0F) + 1);
             break;
-        case 0x45:
-            result = tr("APE time downloader");
-            break;
         // Ray A.
         case 0x46:
             result = tr("AspeQt Client");

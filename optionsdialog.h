@@ -3,6 +3,7 @@
 
 #include <QtGui/QDialog>
 #include <QTreeWidget>
+#include <QtDebug>
 
 #include "serialport.h"
 

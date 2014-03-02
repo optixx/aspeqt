@@ -84,12 +84,6 @@ bool DiskImageAtx::open(const QString &fileName, FileTypes::FileType /* type */)
         atx.tracks[track].sector_list_header.size = VAPI_32(header, 0);
         atx.tracks[track].sector_list_header.type = VAPI_8 (header, 4);
         
-
-        /*qDebug() << "!e" << tr("  sector_list_header size=%1 type=%2")
-            .arg(atx.tracks[track].sector_list_header.size)
-            .arg(atx.tracks[track].sector_list_header.type);*/
-        
-
         atx.tracks[track].sectors = new atx_sector[atx.tracks[track].numsectors];
         for (sector = 0; sector < atx.tracks[track].numsectors; sector++)
         {
@@ -99,11 +93,11 @@ bool DiskImageAtx::open(const QString &fileName, FileTypes::FileType /* type */)
             atx.tracks[track].sectors[sector].position =  VAPI_16(header, 2);
             atx.tracks[track].sectors[sector].start    =  VAPI_32(header, 4);
 
-            /*qDebug() << "!e" << tr("  sector number=%1 status=%2 position=%3 start=%4")
+            qDebug() << "!d" << tr("  sector number=%1 status=%2 position=%3 start=%4")
                 .arg(atx.tracks[track].sectors[sector].number)
                 .arg(atx.tracks[track].sectors[sector].status)
                 .arg(atx.tracks[track].sectors[sector].position)
-                .arg(atx.tracks[track].sectors[sector].start);*/
+                .arg(atx.tracks[track].sectors[sector].start);
         }
           
         sectorcount += atx.tracks[track].numsectors;
@@ -142,7 +136,7 @@ bool DiskImageAtx::open(const QString &fileName, FileTypes::FileType /* type */)
 bool DiskImageAtx::seekToSector(quint16 sector)
 {
     quint8 track, tracksector, trackindex, tracktemp;
-  
+    trackindex = 0; // Ray A.
     if (sector < 1 || sector > m_geometry.sectorCount()) {
         qCritical() << "!e" << tr("[%1] Cannot seek to sector %2: %3")
                        .arg(deviceName())
@@ -225,35 +219,6 @@ bool DiskImageAtx::readSector(quint16 sector, QByteArray &data)
         return false;
     }
     
-    //QByteArray header;
-    //header = sourceFile->read(12);
-    
- /*   if ((quint8)header[5] != 0)
-    {
-        int dupnum = count[sector];
-
-        qDebug() << "!e" << tr("Duplicate sector: %1 dupnum: %2").arg(sector).arg(dupnum);
-
-        count[sector] = (count[sector]+1) % ((quint8)header[5]+1);
-        if (dupnum != 0)  {
-            sector = m_geometry.sectorCount() + (quint8)header[6+dupnum];
-            /* can dupnum be 5? * /
-            if (dupnum > 4 || sector <= 0 || sector > ((sourceFile->size()-16)/(128+12)))
-            {
-              qCritical() << "!e" << tr("Error in .ATX image: sector: %1 dupnum: %2").arg(sector).arg(dupnum);
-              return false;
-            }
-            seekToSector(sector);
-            /* read sector header * /
-            header = sourceFile->read(12);
-        }
-    }*/
-    
-    /*quint8 track, tracksector;
-    track = (sector-1)/18; //m_geometry.sectorsPerTrack();
-    tracksector = (sector-1)%18; //m_geometry.sectorsPerTrack();
-    
-    wd1772status = atx.tracks[track].sectors[tracksector].status;*/
     
     if (wd1772status != 0xff)
     {
@@ -266,7 +231,7 @@ bool DiskImageAtx::readSector(quint16 sector, QByteArray &data)
 	if (wd1772status == 0xB7) {
 	    for (i=0;i<128;i++) {
 		//qDebug() << "!e" << tr("0x%02x").arg(data[i]);
-        if (data[i] == (char)0x33)
+                if (data[i] == '\x33')
 		    data[i] = rand() & 0xFF;
 	    }
 	    return true;

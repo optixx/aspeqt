@@ -206,24 +206,24 @@ QString DiskGeometry::humanReadable() const
     QString result, density, sides;
 
     if (isStandardSD()) {
-        result = tr("Single density diskette");
+        result = tr("SD Diskette");
     } else if (isStandardED()) {
-        result = tr("Enhanced density diskette");
+        result = tr("ED Diskette");
     } else if (isStandardDD()) {
-        result = tr("Double density diskette");
+        result = tr("DD Diskette");
     } else if (isStandardQD()) {
-        result = tr("Quad density diskette");
+        result = tr("QD Diskette");
     } else if (m_tracksPerSide == 1) {
         if (m_bytesPerSector == 128) {
-            result = tr("%1 sectors single density hard disk").arg(m_sectorCount);
+            result = tr("%1 sector SD HardDrive").arg(m_sectorCount);
         } else if (m_bytesPerSector == 256) {
-            result = tr("%1 sectors double density hard disk").arg(m_sectorCount);
+            result = tr("%1 sector DD HardDrive").arg(m_sectorCount);
         } else {
-            result = tr("%1 sectors * %2 bytes hard disk").arg(m_sectorCount).arg(m_bytesPerSector);
+            result = tr("%1 sector, %2 bytes/sector HardDrive").arg(m_sectorCount).arg(m_bytesPerSector);
         }
     } else {
-        result = tr("%1 %2 tracks/side %3 sectors/track %4 bytes/sector diskette")
-                 .arg(m_isDoubleSided?tr("Double sided"):tr("Single sided"))
+        result = tr("%1 %2 tracks/side, %3 sectors/track, %4 bytes/sector diskette")
+                 .arg(m_isDoubleSided?tr("DS"):tr("SS"))
                  .arg(m_tracksPerSide)
                  .arg(m_sectorsPerTrack)
                  .arg(m_bytesPerSector);
@@ -326,7 +326,7 @@ bool SimpleDiskImage::openAtr(const QString &fileName)
     quint64 imageSize = file.size();
 
     // Check if the reported image size is consistent with the actual size
-//ra
+    // Ray A.
     if (size != imageSize) {
         qWarning() << "!w" << tr("Image size of '%1' is reported as %2 bytes in the header but it's actually %3.")
                        .arg(fileName)
@@ -346,7 +346,7 @@ bool SimpleDiskImage::openAtr(const QString &fileName)
 
     // Some .atr file sizes are larger than the reported size
     // in the header. This may be due to extraneous bytes added to the end
-    // of the file by various file conversion utilities (i.e DiskComm)
+    // of the file by various file conversion utilities
     // Those files usually still work fine when loaded to a drive.
     // So only reject a file if the actual size of the file is < size specified
     // in .atr file header --- Ray A.

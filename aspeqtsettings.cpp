@@ -1,5 +1,6 @@
 #include "aspeqtsettings.h"
 #include "serialport.h"
+#include "mainwindow.h"    // Ray A.
 
 AspeqtSettings::AspeqtSettings()
 {
@@ -8,27 +9,15 @@ AspeqtSettings::AspeqtSettings()
     mIsFirstTime = mSettings->value("FirstTime", true).toBool();
     mSettings->setValue("FirstTime", false);
 
-    // Set initial Main Window Positions and Size// Ray A.
-    mXpos = mSettings->value("MainX").toInt();
-    if (mXpos == 0) {
-        mSettings->setValue("MainX", 10);
-        mXpos = 10;
-    }
-    mYpos = mSettings->value("MainY").toInt();
-    if (mYpos == 0) {
-        mSettings->setValue("MainY", 10);
-        mYpos = 10;
-    }
-    mWidth = mSettings->value("MainW").toInt();
-    if (mWidth == 0) {
-        mSettings->setValue("MainW", 600);
-        mWidth = 600;
-    }
-    mHeight = mSettings->value("MainH").toInt();
-    if (mHeight == 0) {
-        mSettings->setValue("MainH", 486);
-        mHeight = 486;
-    }
+    // Set Window Position/Size defaults // Ray A.
+    mMainX = mSettings->value("MainX", 20).toInt();
+    mMainY = mSettings->value("MainY", 40).toInt();
+    mMainW = mSettings->value("MainW", 400).toInt();
+    mMainH = mSettings->value("MainH", 550).toInt();
+    mPrtX = mSettings->value("PrtX", 25).toInt();
+    mPrtY = mSettings->value("PrtY", 45).toInt();
+    mPrtW = mSettings->value("PrtW", 600).toInt();
+    mPrtH = mSettings->value("PrtH", 486).toInt();
 
     /* Standard serial port backend */
     mSerialPortName = mSettings->value("SerialPortName", StandardSerialPortBackend::defaultPortName()).toString();
@@ -50,7 +39,8 @@ AspeqtSettings::AspeqtSettings()
     int i;
 
     mSettings->beginReadArray("MountedImageSettings");
-    for (i = 0; i < 8; i++) {
+
+    for (i = 0; i < 15; i++) {      // Ray A.
         mSettings->setArrayIndex(i);
         mMountedImageSettings[i].fileName = mSettings->value("FileName", QString()).toString();
         mMountedImageSettings[i].isWriteProtected = mSettings->value("IsWriteProtected", false).toBool();
@@ -76,18 +66,54 @@ AspeqtSettings::AspeqtSettings()
     mI18nLanguage = mSettings->value("I18nLanguage", "auto").toString();
 
     mMinimizeToTray = mSettings->value("MinimizeToTray", false).toBool();
+    msaveWindowsPos = mSettings->value("SaveWindowsPosSize", true).toBool();    // Ray A.
+    mFilterUnderscore = mSettings->value("FilterUnderscore", true).toBool();
+
 }
 
 AspeqtSettings::~AspeqtSettings()
 {
     delete mSettings;
 }
+// Get session file name from Mainwindow // Ray A.
+void AspeqtSettings::setSessionFile(const QString &g_sessionFile, const QString &g_sessionFilePath)
+{
+    mSessionFileName = g_sessionFile;
+    mSessionFilePath = g_sessionFilePath;
+}
 
+// Save all session related settings, so that a session could be fully restored later //  Ray A.
 void AspeqtSettings::saveSessionToFile(const QString &fileName)
 {
     QSettings s(fileName, QSettings::IniFormat);
+
+    s.beginGroup("AspeQt");
+        s.setValue("Backend", mBackend);
+        s.setValue("AtariSioDriverName", mAtariSioDriverName);
+        s.setValue("AtariSioHandshakingMethod", mAtariSioHandshakingMethod);
+        s.setValue("SerialPortName", mSerialPortName);
+        s.setValue("HandshakingMethod", mSerialPortHandshakingMethod);
+        s.setValue("MaximumSerialPortSpeed", mSerialPortMaximumSpeed);
+        s.setValue("SerialPortUsePokeyDivisors", mSerialPortUsePokeyDivisors);
+        s.setValue("SerialPortPokeyDivisor", mSerialPortPokeyDivisor);
+        s.setValue("UseHighSpeedExeLoader", mUseHighSpeedExeLoader);
+        s.setValue("CustomCasBaud", mCustomCasBaud);
+        s.setValue("UseCustomCasBaud", mUseCustomCasBaud);
+        s.setValue("I18nLanguage", mI18nLanguage);
+        s.setValue("SaveWindowsPosSize", msaveWindowsPos);
+        s.setValue("MainX", mMainX);
+        s.setValue("MainY", mMainY);
+        s.setValue("MainW", mMainW);
+        s.setValue("MainH", mMainH);
+        s.setValue("PrtX", mPrtX);
+        s.setValue("PrtY", mPrtY);
+        s.setValue("PrtW", mPrtW);
+        s.setValue("PrtH", mPrtH);
+        s.setValue("FilterUnderscore", mFilterUnderscore);
+    s.endGroup();
+//
     s.beginWriteArray("MountedImageSettings");
-    for (int i = 0; i < 8; i++) {
+    for (int i = 0; i < 15; i++) {                      // Ray A.
         ImageSettings is = mMountedImageSettings[i];
         s.setArrayIndex(i);
         s.setValue("FileName", is.fileName);
@@ -95,16 +121,46 @@ void AspeqtSettings::saveSessionToFile(const QString &fileName)
     }
     s.endArray();
 }
-
-void AspeqtSettings::loadSessionFromFile(const QString &fileName)
+// Get all session related settings, so that a session could be fully restored //  Ray A.
+ void AspeqtSettings::loadSessionFromFile(const QString &fileName)
 {
     QSettings s(fileName, QSettings::IniFormat);
+    s.beginGroup("AspeQt");
+        mBackend = s.value("Backend", 0).toInt();
+        mAtariSioDriverName = s.value("AtariSioDriverName", AtariSioBackend::defaultPortName()).toString();
+        mAtariSioHandshakingMethod = s.value("AtariSioHandshakingMethod", 0).toInt();
+        mSerialPortName = s.value("SerialPortName", StandardSerialPortBackend::defaultPortName()).toString();
+        mSerialPortHandshakingMethod = s.value("HandshakingMethod", 0).toInt();
+        mSerialPortMaximumSpeed = s.value("MaximumSerialPortSpeed", 2).toInt();
+        mSerialPortUsePokeyDivisors = s.value("SerialPortUsePokeyDivisors", false).toBool();
+        mSerialPortPokeyDivisor = s.value("SerialPortPokeyDivisor", 6).toInt();
+        mUseHighSpeedExeLoader = s.value("UseHighSpeedExeLoader", false).toBool();
+        mCustomCasBaud = s.value("CustomCasBaud", 875).toInt();
+        mUseCustomCasBaud = s.value("UseCustomCasBaud", false).toBool();
+        mI18nLanguage = s.value("I18nLanguage").toString();
+        msaveWindowsPos = s.value("SaveWindowsPosSize", true).toBool();
+        mMainX = s.value("MainX", 20).toInt();
+        mMainY = s.value("MainY", 40).toInt();
+        mMainW = s.value("MainW", 600).toInt();
+        mMainH = s.value("MainH", 486).toInt();
+        mPrtX = s.value("PrtX", 20).toInt();
+        mPrtY = s.value("PrtY", 40).toInt();
+        mPrtW = s.value("PrtW", 600).toInt();
+        mPrtH = s.value("PrtH", 486).toInt();
+        mFilterUnderscore = s.value("FilterUnderscore", true).toBool();
+    s.endGroup();
+ //
     s.beginReadArray("MountedImageSettings");
-    for (int i = 0; i < 8; i++) {
+    for (int i = 0; i < 15; i++) {              // Ray A.
         s.setArrayIndex(i);
         setMountedImageSetting(i, s.value("FileName", "").toString(), s.value("IsWriteProtected", false).toBool());
     }
     s.endArray();
+}
+// Get MainWindow title from MainWindow  // Ray A.
+void AspeqtSettings::setMainWindowTitle(const QString &g_mainWindowTitle)
+{
+    mMainWindowTitle = g_mainWindowTitle;
 }
 
 bool AspeqtSettings::isFirstTime()
@@ -120,7 +176,7 @@ QString AspeqtSettings::serialPortName()
 void AspeqtSettings::setSerialPortName(const QString &name)
 {
     mSerialPortName = name;
-    mSettings->setValue("SerialPortName", mSerialPortName);
+    if(mSessionFileName == "") mSettings->setValue("SerialPortName", mSerialPortName);
 }
 
 QString AspeqtSettings::atariSioDriverName()
@@ -129,9 +185,9 @@ QString AspeqtSettings::atariSioDriverName()
 }
 
 void AspeqtSettings::setAtariSioDriverName(const QString &name)
-{
+{    
     mAtariSioDriverName = name;
-    mSettings->setValue("AtariSioDriverName", mAtariSioDriverName);
+    if(mSessionFileName == "") mSettings->setValue("AtariSioDriverName", mAtariSioDriverName);
 }
 
 int AspeqtSettings::atariSioHandshakingMethod()
@@ -140,9 +196,9 @@ int AspeqtSettings::atariSioHandshakingMethod()
 }
 
 void AspeqtSettings::setAtariSioHandshakingMethod(int method)
-{
+{    
     mAtariSioHandshakingMethod = method;
-    mSettings->setValue("AtariSioHandshakingMethod", mAtariSioHandshakingMethod);
+    if(mSessionFileName == "") mSettings->setValue("AtariSioHandshakingMethod", mAtariSioHandshakingMethod);
 }
 
 int AspeqtSettings::serialPortMaximumSpeed()
@@ -151,9 +207,9 @@ int AspeqtSettings::serialPortMaximumSpeed()
 }
 
 void AspeqtSettings::setSerialPortMaximumSpeed(int speed)
-{
+{    
     mSerialPortMaximumSpeed = speed;
-    mSettings->setValue("MaximumSerialPortSpeed", mSerialPortMaximumSpeed);
+    if(mSessionFileName == "") mSettings->setValue("MaximumSerialPortSpeed", mSerialPortMaximumSpeed);
 }
 
 bool AspeqtSettings::serialPortUsePokeyDivisors()
@@ -162,9 +218,9 @@ bool AspeqtSettings::serialPortUsePokeyDivisors()
 }
 
 void AspeqtSettings::setSerialPortUsePokeyDivisors(bool use)
-{
+{    
     mSerialPortUsePokeyDivisors = use;
-    mSettings->setValue("SerialPortUsePokeyDivisors", mSerialPortUsePokeyDivisors);
+    if(mSessionFileName == "") mSettings->setValue("SerialPortUsePokeyDivisors", mSerialPortUsePokeyDivisors);
 }
 
 int AspeqtSettings::serialPortPokeyDivisor()
@@ -173,9 +229,9 @@ int AspeqtSettings::serialPortPokeyDivisor()
 }
 
 void AspeqtSettings::setSerialPortPokeyDivisor(int divisor)
-{
+{  
     mSerialPortPokeyDivisor = divisor;
-    mSettings->setValue("SerialPortPokeyDivisor", mSerialPortPokeyDivisor);
+    if(mSessionFileName == "") mSettings->setValue("SerialPortPokeyDivisor", mSerialPortPokeyDivisor);
 }
 
 int AspeqtSettings::serialPortHandshakingMethod()
@@ -184,9 +240,9 @@ int AspeqtSettings::serialPortHandshakingMethod()
 }
 
 void AspeqtSettings::setSerialPortHandshakingMethod(int method)
-{
+{ 
     mSerialPortHandshakingMethod = method;
-    mSettings->setValue("HandshakingMethod", mSerialPortHandshakingMethod);
+    if(mSessionFileName == "") mSettings->setValue("HandshakingMethod", mSerialPortHandshakingMethod);
 }
 
 int AspeqtSettings::backend()
@@ -195,9 +251,9 @@ int AspeqtSettings::backend()
 }
 
 void AspeqtSettings::setBackend(int backend)
-{
+{   
     mBackend = backend;
-    mSettings->setValue("Backend", mBackend);
+    if(mSessionFileName == "") mSettings->setValue("Backend", mBackend);
 }
 
 bool AspeqtSettings::useHighSpeedExeLoader()
@@ -206,9 +262,9 @@ bool AspeqtSettings::useHighSpeedExeLoader()
 }
 
 void AspeqtSettings::setUseHighSpeedExeLoader(bool use)
-{
+{   
     mUseHighSpeedExeLoader = use;
-    mSettings->setValue("UseHighSpeedExeLoader", mUseHighSpeedExeLoader);
+    if(mSessionFileName == "") mSettings->setValue("UseHighSpeedExeLoader", mUseHighSpeedExeLoader);
 }
 
 bool AspeqtSettings::useCustomCasBaud()
@@ -217,9 +273,9 @@ bool AspeqtSettings::useCustomCasBaud()
 }
 
 void AspeqtSettings::setUseCustomCasBaud(bool use)
-{
+{   
     mUseCustomCasBaud = use;
-    mSettings->setValue("UseCustomCasBaud", mUseCustomCasBaud);
+    if(mSessionFileName == "") mSettings->setValue("UseCustomCasBaud", mUseCustomCasBaud);
 }
 
 int AspeqtSettings::customCasBaud()
@@ -228,9 +284,9 @@ int AspeqtSettings::customCasBaud()
 }
 
 void AspeqtSettings::setCustomCasBaud(int baud)
-{
+{    
     mCustomCasBaud = baud;
-    mSettings->setValue("CustomCasBaud", mCustomCasBaud);
+    if(mSessionFileName == "") mSettings->setValue("CustomCasBaud", mCustomCasBaud);
 }
 
 AspeqtSettings::ImageSettings AspeqtSettings::getImageSettingsFromName(const QString &fileName)
@@ -239,7 +295,7 @@ AspeqtSettings::ImageSettings AspeqtSettings::getImageSettingsFromName(const QSt
     int i;
     bool found = false;
 
-    for (i = 0; i < 8; i++) {
+    for (i = 0; i < 15; i++) {          // Ray A.
         if (mMountedImageSettings[i].fileName == fileName) {
             is = mMountedImageSettings[i];
             found = true;
@@ -274,12 +330,12 @@ AspeqtSettings::ImageSettings AspeqtSettings::recentImageSetting(int no)
 
 void AspeqtSettings::setMountedImageSetting(int no, const QString &fileName, bool prot)
 {
+
     mMountedImageSettings[no].fileName = fileName;
     mMountedImageSettings[no].isWriteProtected = prot;
-    mSettings->setValue(QString("MountedImageSettings/%1/FileName").arg(no+1), fileName);
-    mSettings->setValue(QString("MountedImageSettings/%1/IsWriteProtected").arg(no+1), prot);
+    if(mSessionFileName == "") mSettings->setValue(QString("MountedImageSettings/%1/FileName").arg(no+1), fileName);
+    if(mSessionFileName == "") mSettings->setValue(QString("MountedImageSettings/%1/IsWriteProtected").arg(no+1), prot);
 }
-
 void AspeqtSettings::mountImage(int no, const QString &fileName, bool prot)
 {
     if (fileName.isEmpty()) {
@@ -317,54 +373,106 @@ void AspeqtSettings::unmountImage(int no)
 }
 
 void AspeqtSettings::swapImages(int no1, int no2)
-{
+{    
     ImageSettings is1 = mountedImageSetting(no1);
     ImageSettings is2 = mountedImageSetting(no2);
     setMountedImageSetting(no1, is2.fileName, is2.isWriteProtected);
     setMountedImageSetting(no2, is1.fileName, is1.isWriteProtected);
 }
+// Save/return last main window position/size option // Ray A.
+bool AspeqtSettings::saveWindowsPos()
+{
+    return msaveWindowsPos;
+}
 
-// Window Position and Size // Ray A.
+void AspeqtSettings::setsaveWindowsPos(bool saveMwp)
+{    
+    msaveWindowsPos = saveMwp;
+    if(mSessionFileName == "") mSettings->setValue("SaveWindowsPosSize", msaveWindowsPos);
+}
+// Last main window position/size (No Session File) // Ray A.
 
 int AspeqtSettings::lastHorizontalPos()
 {
-    return mXpos;
+    return mMainX;
 }
 
 void AspeqtSettings::setLastHorizontalPos(int lastHpos)
-{
-    mXpos = lastHpos;
-    mSettings->setValue("MainX", mXpos);
+{    
+    mMainX = lastHpos;
+    if(mSessionFileName == "") mSettings->setValue("MainX", mMainX);
 }
 int AspeqtSettings::lastVerticalPos()
 {
-    return mYpos;
+    return mMainY;
 }
 
 void AspeqtSettings::setLastVerticalPos(int lastVpos)
-{
-    mYpos = lastVpos;
-    mSettings->setValue("MainY", mYpos);
+{    
+    mMainY = lastVpos;
+    if(mSessionFileName == "") mSettings->setValue("MainY", mMainY);
 }
 int AspeqtSettings::lastWidth()
 {
-    return mWidth;
+    return mMainW;
 }
 
 void AspeqtSettings::setLastWidth(int lastW)
-{
-    mWidth = lastW;
-    mSettings->setValue("MainW", mWidth);
+{    
+    mMainW = lastW;
+    if(mSessionFileName == "") mSettings->setValue("MainW", mMainW);
 }
 int AspeqtSettings::lastHeight()
 {
-    return mHeight;
+    return mMainH;
 }
 
 void AspeqtSettings::setLastHeight(int lastH)
 {
-    mHeight = lastH;
-    mSettings->setValue("MainH", mHeight);
+    mMainH = lastH;
+    if(mSessionFileName == "") mSettings->setValue("MainH", mMainH);
+}
+// Last print window position/size (No Session File) // Ray A.
+
+int AspeqtSettings::lastPrtHorizontalPos()
+{
+    return mPrtX;
+}
+
+void AspeqtSettings::setLastPrtHorizontalPos(int lastPrtHpos)
+{
+    mPrtX = lastPrtHpos;
+    if(mSessionFileName == "") mSettings->setValue("PrtX", mPrtX);
+}
+int AspeqtSettings::lastPrtVerticalPos()
+{
+    return mPrtY;
+}
+
+void AspeqtSettings::setLastPrtVerticalPos(int lastPrtVpos)
+{
+    mPrtY = lastPrtVpos;
+    if(mSessionFileName == "") mSettings->setValue("PrtY", mPrtY);
+}
+int AspeqtSettings::lastPrtWidth()
+{
+    return mPrtW;
+}
+
+void AspeqtSettings::setLastPrtWidth(int lastPrtW)
+{
+    mPrtW = lastPrtW;
+    if(mSessionFileName == "") mSettings->setValue("PrtW", mPrtW);
+}
+int AspeqtSettings::lastPrtHeight()
+{
+    return mPrtH;
+}
+
+void AspeqtSettings::setLastPrtHeight(int lastPrtH)
+{
+    mPrtH = lastPrtH;
+    if(mSessionFileName == "") mSettings->setValue("PrtH", mPrtH);
 }
 QString AspeqtSettings::lastDiskImageDir()
 {
@@ -396,7 +504,8 @@ QString AspeqtSettings::lastSessionDir()
 void AspeqtSettings::setLastSessionDir(const QString &dir)
 {
     mLastSessionDir = dir;
-    mSettings->setValue("LastSessionDir", mLastFolderImageDir);
+//    mSettings->setValue("LastSessionDir", mLastFolderImageDir);  // Ray A.
+    mSettings->setValue("LastSessionDir", mLastSessionDir);
 }
 
 QString AspeqtSettings::lastExeDir()
@@ -450,8 +559,9 @@ QString AspeqtSettings::i18nLanguage()
 
 void AspeqtSettings::setI18nLanguage(const QString &lang)
 {
+
     mI18nLanguage = lang;
-    mSettings->setValue("I18nLanguage", mI18nLanguage);
+    if(mSessionFileName == "") mSettings->setValue("I18nLanguage", mI18nLanguage);
 }
 
 bool AspeqtSettings::minimizeToTray()
@@ -463,6 +573,17 @@ void AspeqtSettings::setMinimizeToTray(bool tray)
 {
     mMinimizeToTray = tray;
     mSettings->setValue("MinimizeToTray", mMinimizeToTray);
+}
+
+bool AspeqtSettings::filterUnderscore()
+{
+    return mFilterUnderscore;
+}
+
+void AspeqtSettings::setfilterUnderscore(bool filter)
+{
+    mFilterUnderscore = filter;
+    mSettings->setValue("FilterUnderscore", mFilterUnderscore);
 }
 
 void AspeqtSettings::writeRecentImageSettings()

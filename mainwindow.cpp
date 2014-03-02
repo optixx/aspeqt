@@ -10,21 +10,32 @@
 #include "autobootdialog.h"
 #include "autoboot.h"
 #include "cassettedialog.h"
+#include "bootoptionsdialog.h"  // Ray A.
 
 #include <QDragEnterEvent>
 #include <QDropEvent>
 #include <QUrl>
 #include <QScrollBar>
 #include <QTranslator>
+#include <QMessageBox>
 
 #include "atarifilesystem.h"
 #include "miscutils.h"
+
 
 AspeqtSettings *aspeqtSettings;
 MainWindow *mainWindow;
 
 QFile *logFile;
 QMutex *logMutex;
+QString g_exefileName;
+QString g_aspeclFileName;
+char g_aspeclSlotNo;
+QString g_aspeQtAppPath;
+bool g_disablePicoHiSpeed;
+
+
+// ****************************** END OF GLOBALS ************************************//
 
 // Displayed only in debug mode    "!d"
 // Unimportant     (gray)          "!u"
@@ -77,8 +88,11 @@ void MainWindow::doLogMessage(int type, const QString &msg)
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent), ui(new Ui::MainWindow)
 {
+
     /* Setup the logging system */
     mainWindow = this;
+    g_aspeQtAppPath = QCoreApplication::applicationDirPath();
+    g_disablePicoHiSpeed = false;
     logFile = new QFile(QDir::temp().absoluteFilePath("aspeqt.log"));
     logFile->open(QFile::WriteOnly | QFile::Truncate | QFile::Unbuffered | QFile::Text);
     logMutex = new QMutex();
@@ -99,22 +113,68 @@ MainWindow::MainWindow(QWidget *parent)
     QCoreApplication::setOrganizationName("TrayGun Software");
     QCoreApplication::setApplicationName("AspeQt");
     aspeqtSettings = new AspeqtSettings();
-    
+       
     /* Load translators */
     loadTranslators();
     
     /* Setup UI */
     ui->setupUi(this);
 
-    // Restore MainWindow to last saved positions and size // Ray A.
+    /* Parse command line arguments:
+      arg(1): session file (xxxxxxxx.aspeqt)  Ray A. */
+
+    QStringList AspeQtArgs = QCoreApplication::arguments();
+    g_sessionFile = g_sessionFilePath = "";
+    if (QCoreApplication::argc() > 1) {
+       QFile sess;
+       QString s = QDir::separator();             // Ray A.
+       int i = AspeQtArgs.at(1).lastIndexOf(s);   // Ray A.
+       if (i != -1) {
+           i++;
+           g_sessionFile = AspeQtArgs.at(1).right(AspeQtArgs.at(1).size() - i);
+           g_sessionFilePath = AspeQtArgs.at(1).left(i);
+           g_sessionFilePath = QDir::fromNativeSeparators(g_sessionFilePath);
+           sess.setFileName(g_sessionFilePath+g_sessionFile);
+           if (!sess.exists()) {
+               QMessageBox::question(this, tr("Session file error"),
+               tr("Requested session file not found in the given directory path or the path is incorrect. AspeQt will continue with default session configuration."), QMessageBox::Ok);
+               g_sessionFile = g_sessionFilePath = "";
+           }
+       } else {
+           if (AspeQtArgs.at(1) != "") {
+               g_sessionFile = AspeQtArgs.at(1);
+               g_sessionFilePath = QDir::currentPath();
+               sess.setFileName(g_sessionFile);
+               if (!sess.exists()) {
+                   QMessageBox::question(this, tr("Session file error"),
+                   tr("Requested session file not found in the application's current directory path\n (No path was specified). AspeQt will continue with default session configuration."), QMessageBox::Ok);
+                   g_sessionFile = g_sessionFilePath = "";
+               }
+           }
+         }
+    }
+    // Pass Session file name, path and MainWindow title to AspeQtSettings // Ray A.
+    aspeqtSettings->setSessionFile(g_sessionFile, g_sessionFilePath);
+    aspeqtSettings->setMainWindowTitle(g_mainWindowTitle);
+
+    // Display Session name, and restore session parameters if session file was specified // Ray A.
+    g_mainWindowTitle = tr("AspeQt - Atari Serial Peripheral Emulator for Qt");
+    if (g_sessionFile != "") {
+        mainWindow->setWindowTitle(g_mainWindowTitle + tr(" -- Session: ") + g_sessionFile);
+        aspeqtSettings->loadSessionFromFile(g_sessionFilePath+g_sessionFile);
+    } else {
+        mainWindow->setWindowTitle(g_mainWindowTitle);
+    }
     mainWindow->setGeometry(aspeqtSettings->lastHorizontalPos(),aspeqtSettings->lastVerticalPos(),aspeqtSettings->lastWidth(),aspeqtSettings->lastHeight());
 
     /* Setup status bar */
     speedLabel = new QLabel(this);
     onOffLabel = new QLabel(this);
+    netLabel = new QLabel(this);
     clearMessagesLabel = new QLabel(this);
     speedLabel->setText(tr("19200 bits/sec"));
     onOffLabel->setMinimumWidth(21);
+    netLabel->setMinimumWidth(18);
 
     clearMessagesLabel->setMinimumWidth(21);
     clearMessagesLabel->setPixmap(QIcon(":/icons/silk-icons/icons/page_white.png").pixmap(16, 16, QIcon::Normal));
@@ -126,10 +186,23 @@ MainWindow::MainWindow(QWidget *parent)
     ui->statusBar->addPermanentWidget(speedLabel);
     ui->statusBar->addPermanentWidget(onOffLabel);
     ui->statusBar->addPermanentWidget(clearMessagesLabel);
+    ui->statusBar->addPermanentWidget(netLabel);
+
+    /* Connect to the network */
+    QString netInterface;
+    Network *oNet = new Network();
+    if (oNet->openConnection(netInterface)) {
+        netLabel->setPixmap(QIcon(":/icons/oxygen-icons/16x16/actions/network.png").pixmap(16, 16, QIcon::Normal));
+        netLabel->setToolTip(tr("Connected to the network via: ") +  netInterface);
+        netLabel->setStatusTip(netLabel->toolTip());
+    } else {
+//        QMessageBox::information(this,tr("Network connection cannot be opened"), tr("No network interface was found!"));
+    }
 
     /* Initialize diskWidgets array and tool button actions */
     
-    for (int i = 0; i < 8; i++) {
+    for (int i = 0; i < g_numberOfDisks; i++) {      // Ray A.
+
         diskWidgets[i].fileNameLabel = findChild <QLabel*> (QString("labelFileName_%1").arg(i + 1));
         diskWidgets[i].imagePropertiesLabel = findChild <QLabel*> (QString("labelImageProperties_%1").arg(i + 1));
         diskWidgets[i].ejectAction = findChild <QAction*> (QString("actionEject_%1").arg(i + 1));
@@ -139,12 +212,16 @@ MainWindow::MainWindow(QWidget *parent)
         diskWidgets[i].mountFolderAction = findChild <QAction*> (QString("actionMountFolder_%1").arg(i + 1));
         diskWidgets[i].saveAction = findChild <QAction*> (QString("actionSave_%1").arg(i + 1));
         diskWidgets[i].autoSaveAction = findChild <QAction*> (QString("actionAutoSave_%1").arg(i + 1));  // Ray A.
+        if(i == 0)
+            diskWidgets[i].bootOptionAction = findChild <QAction*> (QString("actionBootOption"));       // Ray A.
         diskWidgets[i].revertAction = findChild <QAction*> (QString("actionRevert_%1").arg(i + 1));
         diskWidgets[i].saveAsAction = findChild <QAction*> (QString("actionSaveAs_%1").arg(i + 1));
         diskWidgets[i].frame = findChild <QFrame*> (QString("horizontalFrame_%1").arg(i + 1));
 
+        if(i == 0)
+            diskWidgets[i].frame->insertAction(0, diskWidgets[i].bootOptionAction); // Ray A.
         diskWidgets[i].frame->insertAction(0, diskWidgets[i].saveAction);
-        diskWidgets[i].frame->insertAction(0, diskWidgets[i].autoSaveAction);   // Ray A.
+        diskWidgets[i].frame->insertAction(0, diskWidgets[i].autoSaveAction);       // Ray A.
         diskWidgets[i].frame->insertAction(0, diskWidgets[i].saveAsAction);
         diskWidgets[i].frame->insertAction(0, diskWidgets[i].revertAction);
         diskWidgets[i].frame->insertAction(0, diskWidgets[i].mountDiskAction);
@@ -169,7 +246,7 @@ MainWindow::MainWindow(QWidget *parent)
     shownFirstTime = true;
 
     /* Restore application state */
-    for (int i = 0; i < 8; i++) {
+    for (int i = 0; i < g_numberOfDisks; i++) {      // Ray A.
         AspeqtSettings::ImageSettings is;
         is = aspeqtSettings->mountedImageSetting(i);
         mountFile(i, is.fileName, is.isWriteProtected);
@@ -178,10 +255,7 @@ MainWindow::MainWindow(QWidget *parent)
 
     setAcceptDrops(true);
 
-    ApeTime *ape = new ApeTime(sio);
-    sio->installDevice(0x45, ape);
-
-    // AspeQt Server  // Ray A.
+    // AspeQt Client  // Ray A.
     AspeCl *acl = new AspeCl(sio);
     sio->installDevice(0x46, acl);
 
@@ -198,8 +272,17 @@ MainWindow::MainWindow(QWidget *parent)
     sio->installDevice(0x40, printer);
     untitledName = 0;
 
-    trayIcon.setIcon(windowIcon());
+    // Ray A.
     connect(&trayIcon, SIGNAL(activated(QSystemTrayIcon::ActivationReason)), this, SLOT(trayIconActivated(QSystemTrayIcon::ActivationReason)));
+    trayIcon.setIcon(windowIcon());
+
+    // Connections needed for remotely mounting a disk image & Toggle Auto-Commit // Ray A.
+    connect (acl, SIGNAL(findNewSlot(int,bool)), this, SLOT(firstEmptyDiskSlot(int,bool)));
+    connect (this, SIGNAL(newSlot(int)), acl, SLOT(gotNewSlot(int)));
+    connect (acl, SIGNAL(mountFile(int,QString)), this, SLOT(mountFileWithDefaultProtection(int,QString)));
+    connect (this, SIGNAL(fileMounted(bool)), acl, SLOT(fileMounted(bool)));
+    connect (acl, SIGNAL(toggleAutoCommit(int)), this, SLOT(autoCommit(int)));
+
 }
 
 MainWindow::~MainWindow()
@@ -253,7 +336,7 @@ void MainWindow::dragEnterEvent(QDragEnterEvent *event)
     } else {
         i = -1;
     }
-    for (int j = 0; j <= 7; j++) {
+    for (int j = 0; j < g_numberOfDisks; j++) { // Ray A.
         if (i == j) {
             diskWidgets[j].frame->setFrameShadow(QFrame::Sunken);
         } else {
@@ -271,7 +354,7 @@ void MainWindow::dragMoveEvent(QDragMoveEvent *event)
     } else {
         i = -1;
     }
-    for (int j = 0; j <= 7; j++) {
+    for (int j = 0; j < g_numberOfDisks; j++) { // Ray A.
         if (i == j) {
             diskWidgets[j].frame->setFrameShadow(QFrame::Sunken);
         } else {
@@ -282,14 +365,14 @@ void MainWindow::dragMoveEvent(QDragMoveEvent *event)
 
 void MainWindow::dragLeaveEvent(QDragLeaveEvent *)
 {
-    for (int j = 0; j <= 7; j++) {
+    for (int j = 0; j < g_numberOfDisks; j++) { // Ray A.
         diskWidgets[j].frame->setFrameShadow(QFrame::Raised);
     }
 }
 
 void MainWindow::dropEvent(QDropEvent *event)
 {
-    for (int j = 0; j <= 7; j++) {
+    for (int j = 0; j < g_numberOfDisks; j++) { // Ray A.
         diskWidgets[j].frame->setFrameShadow(QFrame::Raised);
     }
     int slot = containingDiskSlot(event->pos());
@@ -328,6 +411,7 @@ void MainWindow::dropEvent(QDropEvent *event)
     FileTypes::FileType type = FileTypes::getFileType(files.at(0));
 
     if (type == FileTypes::Xex) {
+        g_exefileName = files.at(0);  // Ray A.
         bootExe(files.at(0));
         return;
     }
@@ -370,11 +454,13 @@ void MainWindow::dropEvent(QDropEvent *event)
 void MainWindow::closeEvent(QCloseEvent *event)
 {
     // Save Current MainWindow Position and size // Ray A.
-    aspeqtSettings->setLastHorizontalPos(mainWindow->geometry().x());
-    aspeqtSettings->setLastVerticalPos(mainWindow->geometry().y());
-    aspeqtSettings->setLastWidth(mainWindow->geometry().width());
-    aspeqtSettings->setLastHeight(mainWindow->geometry().height());
-
+    if (aspeqtSettings->saveWindowsPos()) {
+        aspeqtSettings->setLastHorizontalPos(mainWindow->geometry().x());
+        aspeqtSettings->setLastVerticalPos(mainWindow->geometry().y());
+        aspeqtSettings->setLastWidth(mainWindow->geometry().width());
+        aspeqtSettings->setLastHeight(mainWindow->geometry().height());
+        if (g_sessionFile != "") aspeqtSettings->saveSessionToFile(g_sessionFilePath + "/" + g_sessionFile);
+    }
     bool wasRunning = ui->actionStartEmulation->isChecked();
     QMessageBox::StandardButton answer = QMessageBox::No;
 
@@ -384,14 +470,14 @@ void MainWindow::closeEvent(QCloseEvent *event)
 
     int toBeSaved = 0;
 
-    for (int i = 0; i < 8; i++) {
+    for (int i = 0; i < g_numberOfDisks; i++) {      // Ray A.
         SimpleDiskImage *img = qobject_cast <SimpleDiskImage*> (sio->getDevice(i + 0x31));
         if (img && img->isModified()) {
             toBeSaved++;
         }
     }
 
-    for (int i = 0; i < 8; i++) {
+    for (int i = 0; i < g_numberOfDisks; i++) {      // Ray A.
         SimpleDiskImage *img = qobject_cast <SimpleDiskImage*> (sio->getDevice(i + 0x31));
         if (img && img->isModified()) {
             toBeSaved--;
@@ -449,8 +535,7 @@ void MainWindow::show()
                 ui->actionOptions->trigger();
             }
         }
-//        qDebug() << "!d" << "Starting emulation";     // Ray A.
-        qDebug() << "!d" << tr("Starting emulation");
+        qDebug() << "!d" << "Starting emulation";
 
         ui->actionStartEmulation->trigger();
     }
@@ -499,7 +584,7 @@ void MainWindow::sioStatusChanged(QString status)
 
 void MainWindow::deviceStatusChanged(int deviceNo)
 {
-    if (deviceNo >= 0x31 && deviceNo <= 0x38) {
+    if (deviceNo >= 0x31 && deviceNo <= 0x3F) { // Ray A.
         SimpleDiskImage *img = qobject_cast <SimpleDiskImage*> (sio->getDevice(deviceNo));
         if (img) {
 
@@ -522,22 +607,28 @@ void MainWindow::deviceStatusChanged(int deviceNo)
 
             findChild <QLabel*> (QString("labelFileName_%1").arg(deviceNo - 0x31 + 1))->setToolTip(img->originalFileName().left(i - 1));
             findChild <QLabel*> (QString("labelFileName_%1").arg(deviceNo - 0x31 + 1))->setStatusTip(img->originalFileName());
+            findChild <QLabel*> (QString("labelImageProperties_%1").arg(deviceNo - 0x31 + 1))->setToolTip(img->description());
 
-            // diskWidgets[deviceNo - 0x31].fileNameLabel->setText(img->originalFileName());
             diskWidgets[deviceNo - 0x31].fileNameLabel->setText(filenamelabel);
             diskWidgets[deviceNo - 0x31].imagePropertiesLabel->setText(img->description());
             diskWidgets[deviceNo - 0x31].ejectAction->setEnabled(true);
             diskWidgets[deviceNo - 0x31].editAction->setChecked(img->editDialog() != 0);
             if (img->description() == tr("Folder image")) {
-                diskWidgets[deviceNo - 0x31].editAction->setEnabled(false);
+                diskWidgets[deviceNo - 0x31].fileNameLabel->setStyleSheet("color: rgb(54, 168, 164); font-weight: bold");
+                diskWidgets[deviceNo - 0x31].editAction->setEnabled(true);              // Ray A.
                 diskWidgets[deviceNo - 0x31].saveAsAction->setEnabled(false);
                 diskWidgets[deviceNo - 0x31].saveAction->setEnabled(false);
                 diskWidgets[deviceNo - 0x31].autoSaveAction->setEnabled(false);         // Ray A.
                 diskWidgets[deviceNo - 0x31].revertAction->setEnabled(false);
+                if(deviceNo - 0x31 == 0)
+                    diskWidgets[deviceNo - 0x31].bootOptionAction->setEnabled(true);   // Ray A.
             } else {
+                diskWidgets[deviceNo - 0x31].fileNameLabel->setStyleSheet("color: rgb(0, 0, 0); font-weight: normal");  // Ray A.
                 diskWidgets[deviceNo - 0x31].editAction->setEnabled(true);
                 diskWidgets[deviceNo - 0x31].saveAsAction->setEnabled(true);
                 diskWidgets[deviceNo - 0x31].autoSaveAction->setEnabled(true);          // Ray A.
+                if(deviceNo - 0x31 == 0)
+                    diskWidgets[deviceNo - 0x31].bootOptionAction->setEnabled(false);   // Ray A.
 
                 if (img->isModified()) {
                     if (!diskWidgets[deviceNo - 0x31].autoSaveAction->isChecked()) {    // Ray A.
@@ -573,6 +664,8 @@ void MainWindow::deviceStatusChanged(int deviceNo)
             diskWidgets[deviceNo - 0x31].editAction->setChecked(false);
             diskWidgets[deviceNo - 0x31].autoSaveAction->setEnabled(false);             // Ray A.
             diskWidgets[deviceNo - 0x31].autoSaveAction->setChecked(false);             // Ray A.
+            if(deviceNo - 0x31 == 0)
+                diskWidgets[deviceNo - 0x31].bootOptionAction->setEnabled(false);             // Ray A.
 
         }
     }
@@ -640,12 +733,13 @@ void MainWindow::on_actionOptions_triggered()
         qApp->processEvents();
     }
     OptionsDialog optionsDialog(this);
-    optionsDialog.exec();
+    optionsDialog.exec() ;
 
     // load translators and retranslate
     loadTranslators();
     ui->retranslateUi(this);
-    for (int i = 0x31; i <= 0x38; i++) {
+
+    for (int i = 0x31; i <= 0x3F; i++) {    // Ray A.
         deviceStatusChanged(i);
     }
     
@@ -673,7 +767,26 @@ void MainWindow::docDisplayWindowClosed()
 {
      ui->actionDocumentation->setChecked(false);
 }
+// Restart emulation and re-translate following a session load // Ray A.
+void MainWindow::setSession()
+{
+    bool restart;
+    restart = ui->actionStartEmulation->isChecked();
+    if (restart) {
+        ui->actionStartEmulation->trigger();
+       sio->wait();
+        qApp->processEvents();
+    }
 
+    // load translators and retranslate
+    loadTranslators();
+    ui->retranslateUi(this);
+    for (int i = 0x31; i <= 0x3F; i++) {
+        deviceStatusChanged(i);
+    }
+
+    ui->actionStartEmulation->trigger();
+}
 void MainWindow::updateRecentFileActions()
 {
     ui->actionMountRecent_0->setText(aspeqtSettings->recentImageSetting(0).fileName);
@@ -735,13 +848,13 @@ int MainWindow::containingDiskSlot(const QPoint &point)
 {
     int i;
     QPoint distance = centralWidget()->geometry().topLeft();
-    for (i=0; i < 8; i++) {
+    for (i=0; i < g_numberOfDisks; i++) {    // Ray A.
         QRect rect = diskWidgets[i].frame->geometry().translated(distance);
         if (rect.contains(point)) {
             break;
         }
     }
-    if (i > 7) {
+    if (i > g_numberOfDisks-1) {   // Ray A.
         i = -1;
     }
     return i;
@@ -750,18 +863,19 @@ int MainWindow::containingDiskSlot(const QPoint &point)
 int MainWindow::firstEmptyDiskSlot(int startFrom, bool createOne)
 {
     int i;
-    for (i = startFrom; i < 8; i++) {
+    for (i = startFrom; i < g_numberOfDisks; i++) {  // Ray A.
         if (!sio->getDevice(0x31 + i)) {
             break;
         }
     }
-    if (i > 7) {
+    if (i > g_numberOfDisks-1) {   // Ray A.
         if (createOne) {
-            i = 7;
+            i = g_numberOfDisks-1;
         } else {
             i = -1;
         }
     }
+    emit newSlot(i);        // Ray A.
     return i;
 }
 
@@ -781,6 +895,8 @@ void MainWindow::bootExe(const QString &fileName)
     connect(&loader, SIGNAL(booterLoaded()), &dlg, SLOT(booterLoaded()));
     connect(&loader, SIGNAL(blockRead(int, int)), &dlg, SLOT(blockRead(int, int)));
     connect(&loader, SIGNAL(loaderDone()), &dlg, SLOT(loaderDone()));
+    connect(&dlg, SIGNAL(keepOpen()), this, SLOT(keepBootExeOpen()));   // Ray A.
+
     dlg.exec();
     sio->uninstallDevice(0x31);
     if (old) {
@@ -789,11 +905,36 @@ void MainWindow::bootExe(const QString &fileName)
         d = qobject_cast <SimpleDiskImage*> (sio->getDevice(0x31));
     }
 }
+// Make boot executable dialog persistant until it's manually closed // Ray A.
+void MainWindow::keepBootExeOpen()
+{
+    bootExe(g_exefileName);
+}
 
 void MainWindow::mountFileWithDefaultProtection(int no, const QString &fileName)
 {
-    bool prot = aspeqtSettings->getImageSettingsFromName(fileName).isWriteProtected;
-    mountFile(no, fileName, prot);
+    // If fileName was passed from AspeCL it is an 8.1 name, so we need to find
+    // the full PC name in order to validate it.  // Ray A.
+    QString atariFileName, atariLongName, path;
+
+    g_aspeclFileName = fileName;
+    atariFileName = fileName;
+
+    if(atariFileName.left(1) == "*") {
+        FolderImage fi(sio);
+        atariFileName = atariFileName.mid(1);
+        path = aspeqtSettings->lastFolderImageDir();
+        atariLongName = fi.longName(path, atariFileName);
+        if(atariLongName == "") {
+            sio->port()->writeDataNak();
+            return;
+        } else {
+            atariFileName =  path + "/" + atariLongName;
+        }
+     }
+
+    bool prot = aspeqtSettings->getImageSettingsFromName(atariFileName).isWriteProtected;
+    mountFile(no, atariFileName, prot);
 }
 
 void MainWindow::mountFile(int no, const QString &fileName, bool /*prot*/)
@@ -802,6 +943,7 @@ void MainWindow::mountFile(int no, const QString &fileName, bool /*prot*/)
     bool isDir = false;
 
     if (fileName.isEmpty()) {
+        if(g_aspeclFileName.left(1) == "*") emit fileMounted(false);  // Ray A.
         return;
     }
 
@@ -822,11 +964,13 @@ void MainWindow::mountFile(int no, const QString &fileName, bool /*prot*/)
         if (!disk->open(fileName, type)) {
             aspeqtSettings->unmountImage(no);
             delete disk;
+            if(g_aspeclFileName.left(1) == "*") emit fileMounted(false);  // Ray A.
             return;
         }
         if (!ejectImage(no)) {
             aspeqtSettings->unmountImage(no);
             delete disk;
+            if(g_aspeclFileName.left(1) == "*") emit fileMounted(false);  // Ray A.
             return;
         }
 
@@ -854,20 +998,21 @@ void MainWindow::mountFile(int no, const QString &fileName, bool /*prot*/)
         qDebug() << "!n" << tr("[%1] Mounted '%2' as '%3'.")
                 .arg(disk->deviceName())
                 .arg(filenamelabel)
-//                .arg(fileName)
                 .arg(disk->description());
+        if(g_aspeclFileName.left(1) == "*") emit fileMounted(true);  // Ray A.
+
     }
 }
 
 void MainWindow::mountDiskImage(int no)
 {
     QString dir;
-
-    if (diskWidgets[no].fileNameLabel->text().isEmpty()) {
+// Always mount from "last image dir" // Ray A.
+//    if (diskWidgets[no].fileNameLabel->text().isEmpty()) {
         dir = aspeqtSettings->lastDiskImageDir();
-    } else {
-        dir = QFileInfo(diskWidgets[no].fileNameLabel->text()).absolutePath();        
-    }
+//    } else {
+//        dir = QFileInfo(diskWidgets[no].fileNameLabel->text()).absolutePath();
+//    }
     QString fileName = QFileDialog::getOpenFileName(this,
                                                     tr("Open a disk image"),
                                                     dir,
@@ -888,12 +1033,10 @@ void MainWindow::mountDiskImage(int no)
 void MainWindow::mountFolderImage(int no)
 {
     QString dir;
-    if (diskWidgets[no].fileNameLabel->text().isEmpty()) {
-        dir = aspeqtSettings->lastFolderImageDir();
-    } else {
-        dir = diskWidgets[no].fileNameLabel->text();
-    }
+// Always mount from "last folder dir" // Ray A.
+    dir = aspeqtSettings->lastFolderImageDir();
     QString fileName = QFileDialog::getExistingDirectory(this, tr("Open a folder image"), dir);
+    fileName = QDir::fromNativeSeparators(fileName);    // Ray A.
     if (fileName.isEmpty()) {
         return;
     }
@@ -987,6 +1130,103 @@ void MainWindow::saveDisk(int no)
     }
 }
 // Ray A.
+void MainWindow::autoCommit(int no)
+{
+    switch (no)
+    {
+        case 0 :
+        {
+            if(ui->autoSave_1->isEnabled()) ui->autoSave_1->click();
+
+        }
+        break;
+        case 1 :
+        {
+            if(ui->autoSave_2->isEnabled()) ui->autoSave_2->click();
+
+        }
+        break;
+        case 2 :
+        {
+            if(ui->autoSave_3->isEnabled()) ui->autoSave_3->click();
+
+        }
+        break;
+        case 3 :
+        {
+            if(ui->autoSave_4->isEnabled()) ui->autoSave_4->click();
+
+        }
+        break;
+        case 4 :
+        {
+            if(ui->autoSave_5->isEnabled()) ui->autoSave_5->click();
+
+        }
+        break;
+        case 5 :
+        {
+            if(ui->autoSave_6->isEnabled()) ui->autoSave_6->click();
+
+        }
+        break;
+        case 6 :
+        {
+            if(ui->autoSave_7->isEnabled()) ui->autoSave_7->click();
+
+        }
+        break;
+        case 7 :
+        {
+            if(ui->autoSave_8->isEnabled()) ui->autoSave_8->click();
+
+        }
+        break;
+        case 8 :
+        {
+            if(ui->autoSave_9->isEnabled()) ui->autoSave_9->click();
+
+        }
+        break;
+        case 9 :
+        {
+            if(ui->autoSave_10->isEnabled()) ui->autoSave_10->click();
+
+        }
+        break;
+        case 10 :
+        {
+            if(ui->autoSave_11->isEnabled()) ui->autoSave_11->click();
+
+        }
+        break;
+        case 11 :
+        {
+            if(ui->autoSave_12->isEnabled()) ui->autoSave_12->click();
+
+        }
+        break;
+        case 12 :
+        {
+            if(ui->autoSave_13->isEnabled()) ui->autoSave_13->click();
+
+        }
+        break;
+        case 13 :
+        {
+            if(ui->autoSave_14->isEnabled()) ui->autoSave_14->click();
+
+        }
+        break;
+        case 14 :
+        {
+            if(ui->autoSave_15->isEnabled()) ui->autoSave_15->click();
+
+        }
+        break;
+    }
+}
+
 void MainWindow::autoSaveDisk(int no)
 {
     SimpleDiskImage *img = qobject_cast <SimpleDiskImage*> (sio->getDevice(no + 0x31));
@@ -1000,7 +1240,7 @@ void MainWindow::autoSaveDisk(int no)
     switch (no) {
         case 0 :
             if (ui->autoSave_1->isChecked()) {
-                qDebug() << "!d" << tr("[Disk 1] Auto-commit ON.");
+                qDebug() << "!n" << tr("[Disk 1] Auto-commit ON.");
             } else {
                 qDebug() << "!n" << tr("[Disk 1] Auto-commit OFF.");
               }
@@ -1008,7 +1248,7 @@ void MainWindow::autoSaveDisk(int no)
 
         case 1 :
             if (ui->autoSave_2->isChecked()) {
-                qDebug() << "!d" << tr("[Disk 2] Auto-commit ON.");
+                qDebug() << "!n" << tr("[Disk 2] Auto-commit ON.");
             } else {
                 qDebug() << "!n" << tr("[Disk 2] Auto-commit OFF.");
               }
@@ -1016,7 +1256,7 @@ void MainWindow::autoSaveDisk(int no)
 
         case 2 :
             if (ui->autoSave_3->isChecked()) {
-                qDebug() << "!d" << tr("[Disk 3] Auto-commit ON.");
+                qDebug() << "!n" << tr("[Disk 3] Auto-commit ON.");
             } else {
                 qDebug() << "!n" << tr("[Disk 3] Auto-commit OFF.");
               }
@@ -1024,7 +1264,7 @@ void MainWindow::autoSaveDisk(int no)
 
         case 3 :
             if (ui->autoSave_4->isChecked()) {
-                qDebug() << "!d" << tr("[Disk 4] Auto-commit ON.");
+                qDebug() << "!n" << tr("[Disk 4] Auto-commit ON.");
             } else {
                 qDebug() << "!n" << tr("[Disk 4] Auto-commit OFF.");
               }
@@ -1032,7 +1272,7 @@ void MainWindow::autoSaveDisk(int no)
 
         case 4 :
             if (ui->autoSave_5->isChecked()) {
-                qDebug() << "!d" << tr("[Disk 5] Auto-commit ON.");
+                qDebug() << "!n" << tr("[Disk 5] Auto-commit ON.");
             } else {
                 qDebug() << "!n" << tr("[Disk 5] Auto-commit OFF.");
               }
@@ -1040,7 +1280,7 @@ void MainWindow::autoSaveDisk(int no)
 
         case 5 :
             if (ui->autoSave_6->isChecked()) {
-                qDebug() << "!d" << tr("[Disk 6] Auto-commit ON.");
+                qDebug() << "!n" << tr("[Disk 6] Auto-commit ON.");
             } else {
                 qDebug() << "!n" << tr("[Disk 6] Auto-commit OFF.");
               }
@@ -1048,7 +1288,7 @@ void MainWindow::autoSaveDisk(int no)
 
         case 6 :
             if (ui->autoSave_7->isChecked()) {
-                qDebug() << "!d" << tr("[Disk 7] Auto-commit ON.");
+                qDebug() << "!n" << tr("[Disk 7] Auto-commit ON.");
             } else {
                 qDebug() << "!n" << tr("[Disk 7] Auto-commit OFF.");
               }
@@ -1056,9 +1296,58 @@ void MainWindow::autoSaveDisk(int no)
 
         case 7 :
             if (ui->autoSave_8->isChecked()) {
-                qDebug() << "!d" << tr("[Disk 8] Auto-commit ON.");
+                qDebug() << "!n" << tr("[Disk 8] Auto-commit ON.");
             } else {
                 qDebug() << "!n" << tr("[Disk 8] Auto-commit OFF.");
+              }
+            break;
+        case 8 :
+            if (ui->autoSave_9->isChecked()) {
+                qDebug() << "!n" << tr("[Disk 9] Auto-commit ON.");
+            } else {
+                qDebug() << "!n" << tr("[Disk 9] Auto-commit OFF.");
+              }
+            break;
+        case 9 :
+            if (ui->autoSave_10->isChecked()) {
+                qDebug() << "!n" << tr("[Disk 10] Auto-commit ON.");
+            } else {
+                qDebug() << "!n" << tr("[Disk 10] Auto-commit OFF.");
+              }
+            break;
+        case 10 :
+            if (ui->autoSave_11->isChecked()) {
+                qDebug() << "!n" << tr("[Disk 11] Auto-commit ON.");
+            } else {
+                qDebug() << "!n" << tr("[Disk 11] Auto-commit OFF.");
+              }
+            break;
+        case 11 :
+            if (ui->autoSave_12->isChecked()) {
+                qDebug() << "!n" << tr("[Disk 12] Auto-commit ON.");
+            } else {
+                qDebug() << "!n" << tr("[Disk 12] Auto-commit OFF.");
+              }
+            break;
+        case 12 :
+            if (ui->autoSave_13->isChecked()) {
+                qDebug() << "!n" << tr("[Disk 13] Auto-commit ON.");
+            } else {
+                qDebug() << "!n" << tr("[Disk 13] Auto-commit OFF.");
+              }
+            break;
+        case 13 :
+            if (ui->autoSave_14->isChecked()) {
+                qDebug() << "!n" << tr("[Disk 14] Auto-commit ON.");
+            } else {
+                qDebug() << "!n" << tr("[Disk 14] Auto-commit OFF.");
+              }
+            break;
+        case 14 :
+            if (ui->autoSave_15->isChecked()) {
+                qDebug() << "!n" << tr("[Disk 15] Auto-commit ON.");
+            } else {
+                qDebug() << "!n" << tr("[Disk 15] Auto-commit OFF.");
               }
             break;
     }
@@ -1148,6 +1437,15 @@ void MainWindow::on_actionMountDisk_6_triggered() {mountDiskImage(5);}
 void MainWindow::on_actionMountDisk_7_triggered() {mountDiskImage(6);}
 void MainWindow::on_actionMountDisk_8_triggered() {mountDiskImage(7);}
 
+// Additional disks //   Ray A.
+void MainWindow::on_actionMountDisk_9_triggered() {mountDiskImage(8);}
+void MainWindow::on_actionMountDisk_10_triggered() {mountDiskImage(9);}
+void MainWindow::on_actionMountDisk_11_triggered() {mountDiskImage(10);}
+void MainWindow::on_actionMountDisk_12_triggered() {mountDiskImage(11);}
+void MainWindow::on_actionMountDisk_13_triggered() {mountDiskImage(12);}
+void MainWindow::on_actionMountDisk_14_triggered() {mountDiskImage(13);}
+void MainWindow::on_actionMountDisk_15_triggered() {mountDiskImage(14);}
+
 void MainWindow::on_actionMountFolder_1_triggered() {mountFolderImage(0);}
 void MainWindow::on_actionMountFolder_2_triggered() {mountFolderImage(1);}
 void MainWindow::on_actionMountFolder_3_triggered() {mountFolderImage(2);}
@@ -1157,6 +1455,15 @@ void MainWindow::on_actionMountFolder_6_triggered() {mountFolderImage(5);}
 void MainWindow::on_actionMountFolder_7_triggered() {mountFolderImage(6);}
 void MainWindow::on_actionMountFolder_8_triggered() {mountFolderImage(7);}
 
+// Additional Folders  // Ray A.
+void MainWindow::on_actionMountFolder_9_triggered() {mountFolderImage(8);}
+void MainWindow::on_actionMountFolder_10_triggered() {mountFolderImage(9);}
+void MainWindow::on_actionMountFolder_11_triggered() {mountFolderImage(10);}
+void MainWindow::on_actionMountFolder_12_triggered() {mountFolderImage(11);}
+void MainWindow::on_actionMountFolder_13_triggered() {mountFolderImage(12);}
+void MainWindow::on_actionMountFolder_14_triggered() {mountFolderImage(13);}
+void MainWindow::on_actionMountFolder_15_triggered() {mountFolderImage(14);}
+
 void MainWindow::on_actionEject_1_triggered() {ejectImage(0);}
 void MainWindow::on_actionEject_2_triggered() {ejectImage(1);}
 void MainWindow::on_actionEject_3_triggered() {ejectImage(2);}
@@ -1165,6 +1472,14 @@ void MainWindow::on_actionEject_5_triggered() {ejectImage(4);}
 void MainWindow::on_actionEject_6_triggered() {ejectImage(5);}
 void MainWindow::on_actionEject_7_triggered() {ejectImage(6);}
 void MainWindow::on_actionEject_8_triggered() {ejectImage(7);}
+// Ray A.
+void MainWindow::on_actionEject_9_triggered() {ejectImage(8);}
+void MainWindow::on_actionEject_10_triggered() {ejectImage(9);}
+void MainWindow::on_actionEject_11_triggered() {ejectImage(10);}
+void MainWindow::on_actionEject_12_triggered() {ejectImage(11);}
+void MainWindow::on_actionEject_13_triggered() {ejectImage(12);}
+void MainWindow::on_actionEject_14_triggered() {ejectImage(13);}
+void MainWindow::on_actionEject_15_triggered() {ejectImage(14);}
 
 void MainWindow::on_actionWriteProtect_1_triggered() {toggleWriteProtection(0);}
 void MainWindow::on_actionWriteProtect_2_triggered() {toggleWriteProtection(1);}
@@ -1174,6 +1489,14 @@ void MainWindow::on_actionWriteProtect_5_triggered() {toggleWriteProtection(4);}
 void MainWindow::on_actionWriteProtect_6_triggered() {toggleWriteProtection(5);}
 void MainWindow::on_actionWriteProtect_7_triggered() {toggleWriteProtection(6);}
 void MainWindow::on_actionWriteProtect_8_triggered() {toggleWriteProtection(7);}
+// Ray A.
+void MainWindow::on_actionWriteProtect_9_triggered() {toggleWriteProtection(8);}
+void MainWindow::on_actionWriteProtect_10_triggered() {toggleWriteProtection(9);}
+void MainWindow::on_actionWriteProtect_11_triggered() {toggleWriteProtection(10);}
+void MainWindow::on_actionWriteProtect_12_triggered() {toggleWriteProtection(11);}
+void MainWindow::on_actionWriteProtect_13_triggered() {toggleWriteProtection(12);}
+void MainWindow::on_actionWriteProtect_14_triggered() {toggleWriteProtection(13);}
+void MainWindow::on_actionWriteProtect_15_triggered() {toggleWriteProtection(14);}
 
 void MainWindow::on_actionMountRecent_0_triggered() {mountFileWithDefaultProtection(firstEmptyDiskSlot(), ui->actionMountRecent_0->text());}
 void MainWindow::on_actionMountRecent_1_triggered() {mountFileWithDefaultProtection(firstEmptyDiskSlot(), ui->actionMountRecent_1->text());}
@@ -1194,6 +1517,14 @@ void MainWindow::on_actionEditDisk_5_triggered() {openEditor(4);}
 void MainWindow::on_actionEditDisk_6_triggered() {openEditor(5);}
 void MainWindow::on_actionEditDisk_7_triggered() {openEditor(6);}
 void MainWindow::on_actionEditDisk_8_triggered() {openEditor(7);}
+// Ray A.
+void MainWindow::on_actionEditDisk_9_triggered() {openEditor(8);}
+void MainWindow::on_actionEditDisk_10_triggered() {openEditor(9);}
+void MainWindow::on_actionEditDisk_11_triggered() {openEditor(10);}
+void MainWindow::on_actionEditDisk_12_triggered() {openEditor(11);}
+void MainWindow::on_actionEditDisk_13_triggered() {openEditor(12);}
+void MainWindow::on_actionEditDisk_14_triggered() {openEditor(13);}
+void MainWindow::on_actionEditDisk_15_triggered() {openEditor(14);}
 
 void MainWindow::on_actionSave_1_triggered() {saveDisk(0);}
 void MainWindow::on_actionSave_2_triggered() {saveDisk(1);}
@@ -1204,6 +1535,15 @@ void MainWindow::on_actionSave_6_triggered() {saveDisk(5);}
 void MainWindow::on_actionSave_7_triggered() {saveDisk(6);}
 void MainWindow::on_actionSave_8_triggered() {saveDisk(7);}
 // Ray A.
+void MainWindow::on_actionSave_9_triggered() {saveDisk(8);}
+void MainWindow::on_actionSave_10_triggered() {saveDisk(9);}
+void MainWindow::on_actionSave_11_triggered() {saveDisk(10);}
+void MainWindow::on_actionSave_12_triggered() {saveDisk(11);}
+void MainWindow::on_actionSave_13_triggered() {saveDisk(12);}
+void MainWindow::on_actionSave_14_triggered() {saveDisk(13);}
+void MainWindow::on_actionSave_15_triggered() {saveDisk(14);}
+
+// Ray A.
 void MainWindow::on_actionAutoSave_1_triggered() {autoSaveDisk(0);}
 void MainWindow::on_actionAutoSave_2_triggered() {autoSaveDisk(1);}
 void MainWindow::on_actionAutoSave_3_triggered() {autoSaveDisk(2);}
@@ -1212,7 +1552,15 @@ void MainWindow::on_actionAutoSave_5_triggered() {autoSaveDisk(4);}
 void MainWindow::on_actionAutoSave_6_triggered() {autoSaveDisk(5);}
 void MainWindow::on_actionAutoSave_7_triggered() {autoSaveDisk(6);}
 void MainWindow::on_actionAutoSave_8_triggered() {autoSaveDisk(7);}
-//
+// Ray A.
+void MainWindow::on_actionAutoSave_9_triggered() {autoSaveDisk(8);}
+void MainWindow::on_actionAutoSave_10_triggered() {autoSaveDisk(9);}
+void MainWindow::on_actionAutoSave_11_triggered() {autoSaveDisk(10);}
+void MainWindow::on_actionAutoSave_12_triggered() {autoSaveDisk(11);}
+void MainWindow::on_actionAutoSave_13_triggered() {autoSaveDisk(12);}
+void MainWindow::on_actionAutoSave_14_triggered() {autoSaveDisk(13);}
+void MainWindow::on_actionAutoSave_15_triggered() {autoSaveDisk(14);}
+
 void MainWindow::on_actionSaveAs_1_triggered() {saveDiskAs(0);}
 void MainWindow::on_actionSaveAs_2_triggered() {saveDiskAs(1);}
 void MainWindow::on_actionSaveAs_3_triggered() {saveDiskAs(2);}
@@ -1221,6 +1569,14 @@ void MainWindow::on_actionSaveAs_5_triggered() {saveDiskAs(4);}
 void MainWindow::on_actionSaveAs_6_triggered() {saveDiskAs(5);}
 void MainWindow::on_actionSaveAs_7_triggered() {saveDiskAs(6);}
 void MainWindow::on_actionSaveAs_8_triggered() {saveDiskAs(7);}
+// Ray A.
+void MainWindow::on_actionSaveAs_9_triggered() {saveDiskAs(8);}
+void MainWindow::on_actionSaveAs_10_triggered() {saveDiskAs(9);}
+void MainWindow::on_actionSaveAs_11_triggered() {saveDiskAs(10);}
+void MainWindow::on_actionSaveAs_12_triggered() {saveDiskAs(11);}
+void MainWindow::on_actionSaveAs_13_triggered() {saveDiskAs(12);}
+void MainWindow::on_actionSaveAs_14_triggered() {saveDiskAs(13);}
+void MainWindow::on_actionSaveAs_15_triggered() {saveDiskAs(14);}
 
 void MainWindow::on_actionRevert_1_triggered() {revertDisk(0);}
 void MainWindow::on_actionRevert_2_triggered() {revertDisk(1);}
@@ -1230,6 +1586,14 @@ void MainWindow::on_actionRevert_5_triggered() {revertDisk(4);}
 void MainWindow::on_actionRevert_6_triggered() {revertDisk(5);}
 void MainWindow::on_actionRevert_7_triggered() {revertDisk(6);}
 void MainWindow::on_actionRevert_8_triggered() {revertDisk(7);}
+// Ray A.
+void MainWindow::on_actionRevert_9_triggered() {revertDisk(8);}
+void MainWindow::on_actionRevert_10_triggered() {revertDisk(9);}
+void MainWindow::on_actionRevert_11_triggered() {revertDisk(10);}
+void MainWindow::on_actionRevert_12_triggered() {revertDisk(11);}
+void MainWindow::on_actionRevert_13_triggered() {revertDisk(12);}
+void MainWindow::on_actionRevert_14_triggered() {revertDisk(13);}
+void MainWindow::on_actionRevert_15_triggered() {revertDisk(14);}
 
 void MainWindow::on_actionEjectAll_triggered()
 {
@@ -1237,7 +1601,7 @@ void MainWindow::on_actionEjectAll_triggered()
 
     int toBeSaved = 0;
 
-    for (int i = 0; i < 8; i++) {
+    for (int i = 0; i < g_numberOfDisks; i++) {  // Ray A.
         SimpleDiskImage *img = qobject_cast <SimpleDiskImage*> (sio->getDevice(i + 0x31));
         if (img && img->isModified()) {
             toBeSaved++;
@@ -1245,7 +1609,7 @@ void MainWindow::on_actionEjectAll_triggered()
     }
 
     if (!toBeSaved) {
-        for (int i = 7; i >= 0; i--) {
+        for (int i = g_numberOfDisks-1; i >= 0; i--) {
             ejectImage(i);
         }
         return;
@@ -1256,7 +1620,7 @@ void MainWindow::on_actionEjectAll_triggered()
         ui->actionStartEmulation->trigger();
     }
 
-    for (int i = 7; i >= 0; i--) {
+    for (int i = g_numberOfDisks-1; i >= 0; i--) {
         SimpleDiskImage *img = qobject_cast <SimpleDiskImage*> (sio->getDevice(i + 0x31));
         if (img && img->isModified()) {
             toBeSaved--;
@@ -1272,7 +1636,7 @@ void MainWindow::on_actionEjectAll_triggered()
             }
         }
     }
-    for (int i = 7; i >= 0; i--) {
+    for (int i = g_numberOfDisks-1; i >= 0; i--) {
         ejectImage(i, false);
     }
     if (wasRunning) {
@@ -1346,15 +1710,29 @@ void MainWindow::on_actionOpenSession_triggered()
     if (fileName.isEmpty()) {
         return;
     }
+// First eject existing images, then mount session images and restore mainwindow position and size // Ray A.
+    MainWindow::on_actionEjectAll_triggered();
+
     aspeqtSettings->setLastSessionDir(QFileInfo(fileName).absolutePath());
+    g_sessionFile = QFileInfo(fileName).fileName();
+    g_sessionFilePath = QFileInfo(fileName).absolutePath();
+
+// Pass Session file name, path and MainWindow title to AspeQtSettings // Ray A.
+    aspeqtSettings->setSessionFile(g_sessionFile, g_sessionFilePath);
+    aspeqtSettings->setMainWindowTitle(g_mainWindowTitle);
+
     aspeqtSettings->loadSessionFromFile(fileName);
-    for (int i = 0; i < 8; i++) {
+
+    mainWindow->setWindowTitle(g_mainWindowTitle + tr(" -- Session: ") + g_sessionFile);
+    mainWindow->setGeometry(aspeqtSettings->lastHorizontalPos(), aspeqtSettings->lastVerticalPos(), aspeqtSettings->lastWidth() , aspeqtSettings->lastHeight());
+
+    for (int i = 0; i < g_numberOfDisks; i++) {  // Ray A.
         AspeqtSettings::ImageSettings is;
         is = aspeqtSettings->mountedImageSetting(i);
         mountFile(i, is.fileName, is.isWriteProtected);
     }
+    mainWindow->setSession();
 }
-
 void MainWindow::on_actionSaveSession_triggered()
 {
     QString dir = aspeqtSettings->lastSessionDir();
@@ -1367,27 +1745,36 @@ void MainWindow::on_actionSaveSession_triggered()
         return;
     }
     aspeqtSettings->setLastSessionDir(QFileInfo(fileName).absolutePath());
+
+// Save mainwindow position and size to session file // Ray A.
+    if (aspeqtSettings->saveWindowsPos()) {
+        aspeqtSettings->setLastHorizontalPos(mainWindow->geometry().x());
+        aspeqtSettings->setLastVerticalPos(mainWindow->geometry().y());
+        aspeqtSettings->setLastWidth(mainWindow->geometry().width());
+        aspeqtSettings->setLastHeight(mainWindow->geometry().height());
+    }
     aspeqtSettings->saveSessionToFile(fileName);
 }
 
 void MainWindow::on_actionBootExe_triggered()
 {
     QString dir = aspeqtSettings->lastExeDir();
-    QString fileName = QFileDialog::getOpenFileName(this, tr("Open executable"),
+    g_exefileName = QFileDialog::getOpenFileName(this, tr("Open executable"),
                                  dir,
                                  tr(
                                          "Atari executables (*.xex *.com *.exe);;"
                                          "All files (*)"));
-    if (fileName.isEmpty()) {
+    if (g_exefileName.isEmpty()) {
         return;
     }
-    aspeqtSettings->setLastExeDir(QFileInfo(fileName).absolutePath());
-    bootExe(fileName);
+        aspeqtSettings->setLastExeDir(QFileInfo(g_exefileName).absolutePath());
+    bootExe(g_exefileName);
 }
 
 void MainWindow::on_actionShowPrinterTextOutput_triggered()
 {
     if (ui->actionShowPrinterTextOutput->isChecked()) {
+        textPrinterWindow->setGeometry(aspeqtSettings->lastPrtHorizontalPos() ,aspeqtSettings->lastPrtVerticalPos(),aspeqtSettings->lastPrtWidth(),aspeqtSettings->lastPrtHeight());
         textPrinterWindow->show();
     } else {
         textPrinterWindow->hide();
@@ -1445,4 +1832,17 @@ void MainWindow::trayIconActivated(QSystemTrayIcon::ActivationReason reason)
         raise();
         trayIcon.hide();
     }
+}
+
+void MainWindow::folderPath(int slot)
+{
+   emit takeFolderPath(diskWidgets[slot].fileNameLabel->statusTip());
+}
+
+void MainWindow::on_actionBootOption_triggered()
+{
+    BootOptionsDialog bod(this);
+    connect(&bod, SIGNAL(giveFolderPath(int)), this, SLOT(folderPath(int)));
+    connect(this, SIGNAL(takeFolderPath(QString)), &bod, SLOT(folderPath(QString)));
+    bod.exec();
 }

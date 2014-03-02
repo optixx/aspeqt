@@ -72,6 +72,7 @@ private slots:
     void on_actionTextConversion_triggered();
     void on_actionExtractFiles_triggered();
     void on_actionToParent_triggered();
+    void on_actionPrint_triggered();        // Ray A.
     void on_aView_doubleClicked(QModelIndex index);
 
     void fileSystemChanged(int index);

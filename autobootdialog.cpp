@@ -1,5 +1,6 @@
 #include "autobootdialog.h"
 #include "ui_autobootdialog.h"
+#include "mainwindow.h"
 
 #include <QTime>
 #include <QDebug>
@@ -45,8 +46,11 @@ void AutoBootDialog::blockRead(int current, int all)
     ui->progressBar->setMaximum(all);
     ui->progressBar->setValue(current);
 }
-
+// Keep "boot executable" dialog open for repeat boots // Ray A.
 void AutoBootDialog::loaderDone()
 {
+    if (ui->keepOpen->isChecked()) {
+        emit keepOpen();
+    }
     accept();
 }

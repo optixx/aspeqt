@@ -6,7 +6,7 @@
 #include <QPrintDialog>
 #include <QPrinter>
 
-// Includes // Ray A.
+// Includes, Globals and various additional class declarations // Ray A.
 #include <QString>
 #include <QFontComboBox>
 #include <QMessageBox>
@@ -15,8 +15,9 @@ int effAtasciiFont = 0;
 int effFontSize = 0;
 bool showAscii = true;
 bool showAtascii = true;
-QString atasciiFont("Atari Classic Chunky");
 int fontSize = 9;
+QString atasciiFont("Atari Classic Chunky");
+
 
 TextPrinterWindow::TextPrinterWindow(QWidget *parent) :
     QMainWindow(parent),
@@ -60,6 +61,13 @@ void TextPrinterWindow::changeEvent(QEvent *e)
 
 void TextPrinterWindow::closeEvent(QCloseEvent *e)
 {
+    // Save Current TexPrinterWindow Position and size // Ray A.
+    if (aspeqtSettings->saveWindowsPos()) {
+        aspeqtSettings->setLastPrtHorizontalPos(TextPrinterWindow::geometry().x());
+        aspeqtSettings->setLastPrtVerticalPos(TextPrinterWindow::geometry().y());
+        aspeqtSettings->setLastPrtWidth(TextPrinterWindow::geometry().width());
+        aspeqtSettings->setLastPrtHeight(TextPrinterWindow::geometry().height());
+    }
     emit closed();
     e->accept();
 }

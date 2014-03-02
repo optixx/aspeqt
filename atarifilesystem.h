@@ -22,8 +22,7 @@ public:
     Q_DECLARE_FLAGS(Attributes, Attribute)
 
     quint16 firstSector;
-    QByteArray atariName;
-
+    QByteArray atariName;    
     Attributes attributes;
     int no;
     quint16 dir;

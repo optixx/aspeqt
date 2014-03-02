@@ -15,9 +15,6 @@ public:
     AspeqtSettings();
     ~AspeqtSettings();
 
-    void saveSessionToFile(const QString &fileName);
-    void loadSessionFromFile(const QString &fileName);
-
     bool isFirstTime();
 
     QString serialPortName();
@@ -58,7 +55,6 @@ public:
     ImageSettings mountedImageSetting(int no);
 
     void setMountedImageSetting(int no, const QString &fileName, bool prot);
-
     ImageSettings recentImageSetting(int no);
 
     void mountImage(int no, const QString &fileName, bool prot);
@@ -101,12 +97,50 @@ public:
     int lastHeight();
     void setLastHeight(int lastH);
 
+    // Set and restore last printwindow position and size // Ray A.
+    int lastPrtVerticalPos();
+    void setLastPrtVerticalPos(int lastVpos);
+
+    int lastPrtHorizontalPos();
+    void setLastPrtHorizontalPos(int lastHpos);
+
+    int lastPrtWidth();
+    void setLastPrtWidth(int lastW);
+
+    int lastPrtHeight();
+    void setLastPrtHeight(int lastH);
+
     QString i18nLanguage();
     void setI18nLanguage(const QString &$lang);
 
     bool minimizeToTray();
     void setMinimizeToTray(bool tray);
-    
+
+// Save window positions and sizes option // Ray A.
+    bool saveWindowsPos();
+    void setsaveWindowsPos(bool saveMwp);
+
+// To pass session file name/path  // Ray A.
+    void setSessionFile(const QString &g_sessionFile, const QString &g_sessionFilePath);
+
+// To manipulate session files  // Ray A.
+    void saveSessionToFile(const QString &fileName);
+    void loadSessionFromFile(const QString &fileName);
+
+// To manipulate Main Window Title for Session file names    // Ray A.
+    void setMainWindowTitle(const QString &g_mainWindowTitle);
+
+// Show more drives & Hide message log   // Ray A.
+    bool showMoreDrives ();
+    void setShowMoreDrives (bool checked);
+
+    bool hideMessageLog ();
+    void setHideMessageLog (bool checked);
+
+// Filter special characters from file names in Folder Images
+    bool filterUnderscore();
+    void setfilterUnderscore(bool filter);
+
 private:
     QSettings *mSettings;
 
@@ -114,12 +148,21 @@ private:
 
     bool mIsFirstTime;
 
-    // Ray A.
-    int mXpos;
-    int mYpos;
-    int mWidth;
-    int mHeight;
+// To pass values from Mainwindow // Ray A.
+    int mMainX;
+    int mMainY;
+    int mMainW;
+    int mMainH;
+    int mPrtX;
+    int mPrtY;
+    int mPrtW;
+    int mPrtH;
 
+    bool msaveWindowsPos;
+    QString mSessionFileName;
+    QString mSessionFilePath;
+    QString mMainWindowTitle;
+//
     QString mSerialPortName;
     int mSerialPortHandshakingMethod;
     int mSerialPortMaximumSpeed;
@@ -136,7 +179,8 @@ private:
     bool mUseCustomCasBaud;
     int mCustomCasBaud;
 
-    ImageSettings mMountedImageSettings[8];
+    ImageSettings mMountedImageSettings[16];    // Ray A.
+
     ImageSettings mRecentImageSettings[10];
     QString mLastDiskImageDir;
     QString mLastFolderImageDir;
@@ -149,6 +193,7 @@ private:
     QString mI18nLanguage;
 
     bool mMinimizeToTray;
+    bool mFilterUnderscore;
 };
 
 extern AspeqtSettings *aspeqtSettings;
